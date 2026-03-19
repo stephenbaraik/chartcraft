@@ -1133,16 +1133,26 @@ function buildDonut(c, colors) {
 function buildScatter(c, colors) {
   const d = c.data;
   const opts = c.options || {};
-  const points = (d.points || []).map(p => [p.x, p.y, p.size]);
+  const grouped = {};
+  (d.points || []).forEach(p => {
+    const key = p.group || "Series";
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push([p.x, p.y, p.size]);
+  });
+  const groupNames = Object.keys(grouped);
+  const series = (groupNames.length ? groupNames : ["Series"]).map((name, i) => ({
+    name,
+    type: "scatter",
+    data: groupNames.length ? grouped[name] : (d.points || []).map(p => [p.x, p.y, p.size]),
+    symbolSize: d => opts.size_col ? Math.sqrt(d[2] || 4) * 4 : 8,
+    itemStyle: { color: colors[i % colors.length], opacity: 0.8 },
+  }));
   return {
     tooltip: { trigger: "item" },
+    legend: groupNames.length > 1 ? { textStyle: { color: _ECHARTS_TH.textStyle.color } } : undefined,
     xAxis: { type: "value", ...axisBase() },
     yAxis: { type: "value", ...axisBase() },
-    series: [{
-      type: "scatter", data: points,
-      symbolSize: d => opts.size_col ? Math.sqrt(d[2] || 4) * 4 : 8,
-      itemStyle: { color: colors[0], opacity: 0.8 },
-    }],
+    series,
     animation: c.animate !== false,
   };
 }
