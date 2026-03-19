@@ -43,13 +43,16 @@ class CCHandler(BaseHTTPRequestHandler):
         qs = parse_qs(parsed.query)
 
         routes = {
-            "/":                self._serve_viewer,
-            "/builder":         self._serve_builder,
-            "/api/spec":        self._api_spec,
-            "/api/events":      self._api_events,
-            "/api/themes":      self._api_themes,
-            "/api/pages":       self._api_pages,
-            "/api/palettes":    self._api_palettes,
+            "/":                    self._serve_viewer,
+            "/builder":             self._serve_builder,
+            "/api/spec":            self._api_spec,
+            "/api/events":          self._api_events,
+            "/api/themes":          self._api_themes,
+            "/api/pages":           self._api_pages,
+            "/api/palettes":        self._api_palettes,
+            "/api/projects":        self._api_projects_list,
+            "/api/export/notebook": self._api_export_notebook,
+            "/api/export/docker":   self._api_export_docker,
         }
 
         # Dynamic page routes (everything that matches a registered page)
@@ -64,6 +67,8 @@ class CCHandler(BaseHTTPRequestHandler):
             self._serve_static(path[len("/static/"):])
         elif path.startswith("/builder/components/"):
             self._serve_builder_component(path[len("/builder/components/"):])
+        elif path.startswith("/api/projects/"):
+            self._api_project_by_id(path)
         else:
             self._send_404()
 
@@ -72,13 +77,27 @@ class CCHandler(BaseHTTPRequestHandler):
         path = parsed.path.rstrip("/") or "/"
 
         routes = {
-            "/api/filter":  self._api_filter,
-            "/api/layout":  self._api_layout,
-            "/api/refresh": self._api_refresh,
+            "/api/filter":          self._api_filter,
+            "/api/layout":          self._api_layout,
+            "/api/refresh":         self._api_refresh,
+            "/api/parse":           self._api_parse,
+            "/api/projects":        self._api_projects_save,
+            "/api/export/notebook": self._api_export_notebook,
+            "/api/export/docker":   self._api_export_docker,
         }
         handler = routes.get(path)
         if handler:
             handler()
+        elif path.startswith("/api/projects/"):
+            self._api_project_by_id(path)
+        else:
+            self._send_404()
+
+    def do_DELETE(self):
+        parsed = urlparse(self.path)
+        path = parsed.path.rstrip("/") or "/"
+        if path.startswith("/api/projects/"):
+            self._api_project_delete(path)
         else:
             self._send_404()
 
@@ -228,6 +247,122 @@ class CCHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "Invalid JSON"}, status=400)
             return
         self._send_json({"ok": True, "id": comp_id})
+
+    def _api_parse(self):
+        """Parse Python code → builder canvas state (bidirectional sync)."""
+        body = self._read_body()
+        try:
+            payload = loads(body)
+            code = payload.get("code", "")
+        except Exception:
+            self._send_json({"error": "Invalid JSON"}, status=400)
+            return
+        try:
+            from chartcraft.server.parser import parse_code
+            state = parse_code(code)
+            self._send_json(state)
+        except Exception:
+            self._send_json({"error": traceback.format_exc()}, status=500)
+
+    def _api_projects_list(self):
+        """GET /api/projects — list all saved projects."""
+        try:
+            from chartcraft.server.projects import list_projects
+            self._send_json(list_projects())
+        except Exception:
+            self._send_json({"error": traceback.format_exc()}, status=500)
+
+    def _api_projects_save(self):
+        """POST /api/projects — save or update a project."""
+        body = self._read_body()
+        try:
+            payload = loads(body)
+        except Exception:
+            self._send_json({"error": "Invalid JSON"}, status=400)
+            return
+        try:
+            from chartcraft.server.projects import save_project
+            project_id = payload.get("id") or str(int(time.time() * 1000))
+            name  = payload.get("name", "Untitled")
+            state = payload.get("state", {})
+            result = save_project(project_id, name, state)
+            self._send_json(result)
+        except Exception:
+            self._send_json({"error": traceback.format_exc()}, status=500)
+
+    def _api_project_by_id(self, path: str):
+        """GET /api/projects/{id} — load a single project."""
+        project_id = path.split("/api/projects/", 1)[-1].rstrip("/")
+        try:
+            from chartcraft.server.projects import get_project
+            p = get_project(project_id)
+            if p is None:
+                self._send_json({"error": "Not found"}, status=404)
+            else:
+                self._send_json(p)
+        except Exception:
+            self._send_json({"error": traceback.format_exc()}, status=500)
+
+    def _api_project_delete(self, path: str):
+        """DELETE /api/projects/{id} — delete a project."""
+        project_id = path.split("/api/projects/", 1)[-1].rstrip("/")
+        try:
+            from chartcraft.server.projects import delete_project
+            ok = delete_project(project_id)
+            self._send_json({"ok": ok})
+        except Exception:
+            self._send_json({"error": traceback.format_exc()}, status=500)
+
+    def _api_export_notebook(self):
+        """GET or POST /api/export/notebook — download .ipynb."""
+        if self.command == "POST":
+            body = self._read_body()
+            try:
+                state = loads(body)
+            except Exception:
+                self._send_json({"error": "Invalid JSON"}, status=400)
+                return
+        else:
+            state = {"title": "Dashboard", "pages": []}
+
+        try:
+            from chartcraft.server.codegen import generate_notebook
+            nb = generate_notebook(state)
+            data = nb.encode("utf-8")
+            title = state.get("title", "dashboard").replace(" ", "_").lower()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Disposition", f'attachment; filename="{title}.ipynb"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+        except Exception:
+            self._send_json({"error": traceback.format_exc()}, status=500)
+
+    def _api_export_docker(self):
+        """GET or POST /api/export/docker — download Docker zip."""
+        if self.command == "POST":
+            body = self._read_body()
+            try:
+                state = loads(body)
+            except Exception:
+                self._send_json({"error": "Invalid JSON"}, status=400)
+                return
+        else:
+            state = {"title": "Dashboard", "pages": []}
+
+        try:
+            from chartcraft.server.codegen import generate_docker_zip
+            data = generate_docker_zip(state)
+            title = state.get("title", "dashboard").replace(" ", "_").lower()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/zip")
+            self.send_header("Content-Disposition", f'attachment; filename="{title}_docker.zip"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+        except Exception:
+            self._send_json({"error": traceback.format_exc()}, status=500)
 
     # ------------------------------------------------------------------
     # Static files
