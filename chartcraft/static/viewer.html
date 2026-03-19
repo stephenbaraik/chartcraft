@@ -281,6 +281,28 @@ body {
   background: rgba(239,68,68,0.08);
   border-radius: var(--cc-radius-sm);
 }
+.cc-toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  max-width: 360px;
+  padding: 12px 14px;
+  border-radius: var(--cc-radius);
+  border: 1px solid var(--cc-border);
+  background: var(--cc-bg-card);
+  color: var(--cc-text);
+  box-shadow: 0 10px 30px var(--cc-shadow);
+  z-index: 1000;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+.cc-toast.error {
+  border-color: rgba(239,68,68,0.35);
+}
+.cc-toast-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
 
 /* ── Table ── */
 .cc-table-wrap { overflow-x: auto; }
@@ -404,6 +426,39 @@ body {
   .cc-chart-actions { display: none !important; }
 }
 
+/* Exact snapshot export mode used by Playwright PDF */
+body.cc-export-snapshot #cc-pdf-btn,
+body.cc-export-snapshot #cc-theme-picker,
+body.cc-export-snapshot #cc-nav-drawer,
+body.cc-export-snapshot .cc-chart-actions {
+  display: none !important;
+}
+body.cc-export-fit {
+  background: var(--cc-bg) !important;
+  color: var(--cc-text) !important;
+  overflow: hidden;
+}
+body.cc-export-fit #cc-nav,
+body.cc-export-fit #cc-filters,
+body.cc-export-fit #cc-theme-picker,
+body.cc-export-fit #cc-nav-drawer,
+body.cc-export-fit #cc-pdf-btn,
+body.cc-export-fit #cc-skip-link,
+body.cc-export-fit .cc-chart-actions,
+body.cc-export-fit #cc-live-dot {
+  display: none !important;
+}
+body.cc-export-fit #cc-page {
+  padding: 0 !important;
+  transform-origin: top left;
+}
+body.cc-export-fit .cc-chart-card,
+body.cc-export-fit .cc-kpi-card,
+body.cc-export-fit .cc-section-header {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
 @media (max-width: 768px) {
   #cc-hamburger { display: block; }
   #cc-nav-links { display: none; }
@@ -451,7 +506,7 @@ body {
 
 <script>
 // ── Injected data ─────────────────────────────────────────────────────────
-const _SPEC        = {{SPEC}};
+let _SPEC          = {{SPEC}};
 const _NAV         = {{NAV}};
 const _THEME_NAME  = "{{THEME_NAME}}";
 const _THEME_LIST  = {{THEME_LIST}};
@@ -464,6 +519,9 @@ let _crossFilterState = {};   // { dim: value } — set by clicking chart data p
 let _instances        = {};   // id → echarts instance
 let _chartSpecs       = {};   // id → spec — for cross-filter dim tracking
 let _tableState       = {};   // id → { page, sort, search }
+const _EXPORT_MODE    = new URLSearchParams(window.location.search).get("export") || "";
+if (_EXPORT_MODE === "snapshot") document.body.classList.add("cc-export-snapshot");
+if (_EXPORT_MODE === "fit") document.body.classList.add("cc-export-fit");
 
 // Restore filter state from URL on load
 (function _restoreFilterURL() {
@@ -513,10 +571,17 @@ document.addEventListener("click", e => {
 // ── PDF export ─────────────────────────────────────────────────────────────
 function exportPDF() {
   const page = window.location.pathname;
+  const params = new URLSearchParams(window.location.search);
+  const query = new URLSearchParams();
+  query.set("page", page);
+  query.set("export", "fit");
+  if (params.get("theme")) query.set("theme", params.get("theme"));
+  if (params.get("f")) query.set("f", params.get("f"));
   // Try server-side Playwright PDF first
-  fetch(`/api/export/pdf?page=${encodeURIComponent(page)}`)
+  fetch(`/api/export/pdf?${query.toString()}`)
     .then(r => {
-      if (r.headers.get("Content-Type") === "application/pdf") {
+      const contentType = r.headers.get("Content-Type") || "";
+      if (contentType.includes("application/pdf")) {
         return r.blob().then(blob => {
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
@@ -525,11 +590,14 @@ function exportPDF() {
         });
       }
       return r.json().then(j => {
-        // Playwright not installed — fall back to browser print
-        if (j.fallback === "print") window.print();
+        const msg = j.message || j.error || "PDF export failed.";
+        throw new Error(msg);
       });
     })
-    .catch(() => window.print());
+    .catch(err => {
+      console.error("PDF export failed:", err);
+      showToast("PDF export failed", err?.message || "Install Playwright and Chromium to enable server-side PDF export.", "error");
+    });
 }
 
 // ── Theme picker ──────────────────────────────────────────────────────────
@@ -541,8 +609,31 @@ function renderThemePicker() {
 }
 
 function switchTheme(name) {
-  window.location.href = window.location.pathname + "?theme=" + name;
+  const url = new URL(window.location.href);
+  url.searchParams.set("theme", name);
+  window.location.href = url.toString();
 }
+
+function prepareExportFit(targetWidth = 1587, targetHeight = 1122) {
+  const page = document.getElementById("cc-page");
+  if (!page) return { scale: 1, width: 0, height: 0 };
+
+  page.style.zoom = "1";
+  document.body.style.width = targetWidth + "px";
+  document.body.style.minHeight = targetHeight + "px";
+
+  const contentWidth = Math.max(page.scrollWidth, page.offsetWidth);
+  const contentHeight = Math.max(page.scrollHeight, page.offsetHeight);
+  const scale = Math.min(targetWidth / Math.max(contentWidth, 1), targetHeight / Math.max(contentHeight, 1), 1);
+
+  page.style.zoom = String(scale);
+  page.style.width = contentWidth + "px";
+  page.style.margin = "0";
+
+  return { scale, width: contentWidth, height: contentHeight };
+}
+
+window.__ccPrepareExportFit = prepareExportFit;
 
 document.getElementById("cc-theme-toggle").addEventListener("click", e => {
   document.getElementById("cc-theme-picker").classList.toggle("open");
@@ -672,7 +763,7 @@ function _clearCrossFilterHighlights() {
 }
 
 // ── Cascading filter options ───────────────────────────────────────────────
-let _autoApply = false;
+let _autoApply = true;
 let _filterDebounce = null;
 
 function onFilterChange(filterId) {
@@ -702,21 +793,32 @@ function _refreshFilterOptions(filterName, elId) {
     .catch(() => {});
 }
 
-function fetchAndRender() {
+function _fetchAndRenderImpl() {
   const page = window.location.pathname;
   const merged = { ..._filterState, ..._crossFilterState };
+  const applyBtn = document.querySelector(".cc-filter-apply");
+  if (applyBtn) { applyBtn.textContent = "Loading\u2026"; applyBtn.disabled = true; }
   fetch("/api/filter", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ page, filters: merged }),
   })
   .then(r => r.json())
-  .then(spec => renderDashboard(spec))
-  .catch(err => console.error("Filter error:", err));
+  .then(spec => {
+    renderDashboard(spec);
+    const btn = document.querySelector(".cc-filter-apply");
+    if (btn) { btn.textContent = "Apply"; btn.disabled = false; }
+  })
+  .catch(err => {
+    console.error("Filter error:", err);
+    const btn = document.querySelector(".cc-filter-apply");
+    if (btn) { btn.textContent = "Apply"; btn.disabled = false; }
+  });
 }
 
 // ── Dashboard renderer ────────────────────────────────────────────────────
 function renderDashboard(spec) {
+  _SPEC = spec;
   const page = document.getElementById("cc-page");
   page.innerHTML = "";
 
@@ -1349,7 +1451,7 @@ function downloadChart(id) {
 
 // ── SSE — live data ───────────────────────────────────────────────────────
 function connectSSE() {
-  if (_STATIC_MODE) return;
+  if (_STATIC_MODE || _EXPORT_MODE) return;
   const dot = document.getElementById("cc-live-dot");
   const es = new EventSource("/api/events");
 
@@ -1440,8 +1542,19 @@ function _announceA11y(msg) {
   requestAnimationFrame(() => { _ariaLive.textContent = msg; });
 }
 
+function showToast(title, message, kind = "info") {
+  document.querySelectorAll('.cc-toast').forEach(el => el.remove());
+  const toast = document.createElement('div');
+  toast.className = `cc-toast ${kind}`;
+  toast.innerHTML = `<div class="cc-toast-title">${title}</div><div>${message}</div>`;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    if (toast.parentNode) toast.remove();
+  }, 5000);
+}
+
 // Announce filter apply to screen readers
-const _origFetchAndRender = fetchAndRender;
+const _origFetchAndRender = _fetchAndRenderImpl;
 function fetchAndRender() {
   _announceA11y("Applying filters, updating dashboard…");
   _origFetchAndRender();
@@ -1450,7 +1563,11 @@ function fetchAndRender() {
 // ── Init ──────────────────────────────────────────────────────────────────
 renderNav();
 renderThemePicker();
-renderDashboard(_SPEC);
+if (Object.keys(_filterState).length > 0) {
+  fetchAndRender();
+} else {
+  renderDashboard(_SPEC);
+}
 connectSSE();
 
 // Debounced global resize
