@@ -6,6 +6,8 @@
 <title>{{TITLE}} — Builder</title>
 <!-- ECharts must load before app script -->
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<!-- ChartCraft Color Picker component -->
+<script src="/builder/components/color_picker.js"></script>
 <style>
 {{THEME_CSS}}
 
@@ -1458,7 +1460,7 @@ function renderProps() {
       <div class="pp-field"><label>Palette (overrides colors)</label>
         <select onchange="propSet('${id}','palette',this.value)">
           <option value="">— custom —</option>
-          ${["aurora","sunset","ocean","forest","neon","pastel","categorical","midnight","corporate","earth","retro"].map(p =>
+          ${["aurora","sunset","ocean","forest","neon","pastel","categorical","corporate","warm","cool","monochrome","diverging","sequential","earth","candy","retro"].map(p =>
             `<option value="${p}" ${w.palette===p?"selected":""}>${p}</option>`).join("")}
         </select>
       </div>
@@ -1578,29 +1580,112 @@ function propToggle(id, key, btn) {
   syncCode();
 }
 
+// ── Active CCColorPicker instance (singleton) ─────────────────────────────────
+let _ccPicker = null;
+
 function openColorPicker(idx, id, swatchEl) {
-  const input = document.createElement("input");
-  input.type = "color";
   const w = getW(id);
-  input.value = w?.colors?.[idx] || "#6366F1";
-  input.oninput = () => {
-    if (!w.colors) w.colors = [...DEF_COLORS];
-    w.colors[idx] = input.value;
-    swatchEl.style.background = input.value;
-    if (_charts[id]) { try { _charts[id].dispose(); } catch(e) {} delete _charts[id]; }
-    renderPreview(w);
-    syncCode();
-  };
-  input.click();
+  if (!w) return;
+  if (!w.colors) w.colors = [...DEF_COLORS];
+  const initialColor = w.colors[idx] || "#6366F1";
+
+  // Close any existing picker
+  if (_ccPicker) { _ccPicker.destroy(); _ccPicker = null; }
+
+  // Use CCColorPicker if available, fallback to native input
+  if (window.CCColorPicker) {
+    _ccPicker = new CCColorPicker(swatchEl, {
+      value: initialColor,
+      showGradient: false,
+      showHarmonies: true,
+      onChange(hex) {
+        w.colors[idx] = hex;
+        swatchEl.style.background = hex;
+        if (_charts[id]) { try { _charts[id].dispose(); } catch(e) {} delete _charts[id]; }
+        renderPreview(w);
+        syncCode();
+      },
+      onApply(hex) {
+        w.colors[idx] = hex;
+        swatchEl.style.background = hex;
+        if (_charts[id]) { try { _charts[id].dispose(); } catch(e) {} delete _charts[id]; }
+        renderPreview(w);
+        syncCode();
+        _ccPicker = null;
+      },
+    });
+    _ccPicker.open();
+  } else {
+    // Fallback: native color input
+    const input = document.createElement("input");
+    input.type = "color";
+    input.value = initialColor;
+    input.oninput = () => {
+      w.colors[idx] = input.value;
+      swatchEl.style.background = input.value;
+      if (_charts[id]) { try { _charts[id].dispose(); } catch(e) {} delete _charts[id]; }
+      renderPreview(w);
+      syncCode();
+    };
+    input.click();
+  }
 }
 
 function addColor(id) {
   const w = getW(id);
   if (!w) return;
   if (!w.colors) w.colors = [...DEF_COLORS];
+  // Open picker for the new color slot
   w.colors.push("#6366F1");
   renderProps();
+  // Open picker on the last chip
+  const chips = document.querySelectorAll(".pp-color-swatch");
+  if (chips.length) openColorPicker(w.colors.length - 1, id, chips[chips.length - 1]);
   syncCode();
+}
+
+/**
+ * Open color picker for a single-value color property (not a colors array slot).
+ * @param {string} id - widget id
+ * @param {string} prop - property key (e.g. 'bg_color')
+ * @param {HTMLElement} swatchEl - the swatch element to position near and update
+ */
+function openSingleColorPicker(id, prop, swatchEl) {
+  const w = getW(id);
+  if (!w) return;
+  const initialColor = w[prop] || "#6366F1";
+
+  if (_ccPicker) { _ccPicker.destroy(); _ccPicker = null; }
+
+  if (window.CCColorPicker) {
+    _ccPicker = new CCColorPicker(swatchEl, {
+      value: initialColor,
+      showGradient: false,
+      showHarmonies: true,
+      onChange(hex) {
+        w[prop] = hex;
+        swatchEl.style.background = hex;
+        if (_charts[id]) { try { _charts[id].dispose(); } catch(e) {} delete _charts[id]; }
+        renderPreview(w);
+        syncCode();
+      },
+      onApply(hex) {
+        w[prop] = hex;
+        swatchEl.style.background = hex;
+        if (_charts[id]) { try { _charts[id].dispose(); } catch(e) {} delete _charts[id]; }
+        renderPreview(w);
+        syncCode();
+        _ccPicker = null;
+      },
+    });
+    _ccPicker.open();
+  } else {
+    const input = document.createElement("input");
+    input.type = "color";
+    input.value = initialColor;
+    input.oninput = () => { w[prop] = input.value; swatchEl.style.background = input.value; syncCode(); };
+    input.click();
+  }
 }
 
 function removeColor(idx, id) {
