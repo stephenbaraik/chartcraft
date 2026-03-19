@@ -476,7 +476,88 @@ body {
   font-family: var(--cc-font-mono); font-size: 0.76rem;
   color: var(--cc-text-secondary); white-space: pre; margin: 0;
   line-height: 1.5;
+  background: transparent; border: none; outline: none; resize: none;
+  width: 100%; box-sizing: border-box;
 }
+#code-output.dirty { color: var(--cc-text); }
+#code-output.dirty::after { content: ""; }
+.cp-btn.parse-btn { background: var(--cc-accent); color: #fff; border-color: var(--cc-accent); font-weight: 600; }
+.cp-btn.parse-btn:hover { opacity: 0.85; }
+.cp-dirty-badge {
+  font-size: 0.68rem; padding: 1px 6px; border-radius: 10px;
+  background: var(--cc-accent); color: #fff; margin-left: 4px;
+  display: none;
+}
+.cp-dirty-badge.visible { display: inline; }
+
+/* ── Export / Save dropdown ── */
+.tb-dropdown { position: relative; flex-shrink: 0; }
+.tb-dropdown-menu {
+  position: absolute; top: calc(100% + 4px); right: 0;
+  background: var(--cc-bg-card); border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius); min-width: 160px;
+  box-shadow: 0 8px 24px var(--cc-shadow);
+  z-index: 800; display: none; padding: 4px;
+}
+.tb-dropdown.open .tb-dropdown-menu { display: block; }
+.tb-dropdown-item {
+  display: block; width: 100%; text-align: left;
+  padding: 7px 12px; border: none; background: transparent;
+  color: var(--cc-text); font-size: 0.82rem; cursor: pointer;
+  border-radius: var(--cc-radius-sm); transition: background 0.1s;
+  white-space: nowrap;
+}
+.tb-dropdown-item:hover { background: var(--cc-bg-elevated); color: var(--cc-accent); }
+.tb-dropdown-sep { height: 1px; background: var(--cc-border); margin: 3px 0; }
+
+/* ── Projects Drawer ── */
+#projects-drawer {
+  position: fixed; top: 0; right: -340px; width: 320px; height: 100vh;
+  background: var(--cc-bg-card); border-left: 1px solid var(--cc-border);
+  box-shadow: -8px 0 32px var(--cc-shadow);
+  z-index: 850; transition: right 0.25s ease;
+  display: flex; flex-direction: column;
+}
+#projects-drawer.open { right: 0; }
+.pd-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--cc-border); flex-shrink: 0;
+}
+.pd-title { font-weight: 600; font-size: 0.9rem; }
+.pd-close { background: none; border: none; color: var(--cc-text-muted); cursor: pointer; font-size: 1.1rem; }
+.pd-close:hover { color: var(--cc-text); }
+.pd-save-row { padding: 12px 16px; border-bottom: 1px solid var(--cc-border); display: flex; gap: 8px; flex-shrink: 0; }
+.pd-save-row input {
+  flex: 1; background: var(--cc-bg-elevated); border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius-sm); color: var(--cc-text); padding: 5px 8px;
+  font-size: 0.82rem; outline: none;
+}
+.pd-save-row input:focus { border-color: var(--cc-accent); }
+.pd-save-btn {
+  background: var(--cc-accent); border: none; border-radius: var(--cc-radius-sm);
+  color: #fff; padding: 5px 12px; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+}
+.pd-list { flex: 1; overflow-y: auto; padding: 8px; }
+.pd-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: var(--cc-radius-sm);
+  cursor: pointer; transition: background 0.1s;
+  border: 1px solid transparent;
+}
+.pd-item:hover { background: var(--cc-bg-elevated); }
+.pd-item-name { flex: 1; font-size: 0.85rem; font-weight: 500; }
+.pd-item-date { font-size: 0.72rem; color: var(--cc-text-muted); }
+.pd-item-load {
+  background: none; border: 1px solid var(--cc-border); border-radius: 4px;
+  color: var(--cc-text-secondary); font-size: 0.75rem; padding: 2px 8px; cursor: pointer;
+}
+.pd-item-load:hover { border-color: var(--cc-accent); color: var(--cc-accent); }
+.pd-item-del {
+  background: none; border: none; color: var(--cc-text-muted); cursor: pointer;
+  font-size: 0.85rem; padding: 2px 5px; border-radius: 3px;
+}
+.pd-item-del:hover { color: var(--cc-danger); background: rgba(239,68,68,0.1); }
+.pd-empty { color: var(--cc-text-muted); font-size: 0.82rem; text-align: center; padding: 24px 16px; }
 
 /* ── Context Menu ── */
 #ctx-menu {
@@ -556,8 +637,23 @@ body {
   <button class="tb-btn" id="btn-tablet"  title="Tablet (768px)"   onclick="setPreviewMode('tablet')">Tablet</button>
   <button class="tb-btn" id="btn-mobile"  title="Mobile (375px)"   onclick="setPreviewMode('mobile')">Mobile</button>
   <div class="tb-spacer"></div>
-  <button class="tb-btn primary" id="btn-save"   onclick="saveLayout()">Save</button>
-  <button class="tb-btn"         id="btn-export" onclick="exportPy()">Export .py</button>
+  <!-- Export dropdown -->
+  <div class="tb-dropdown" id="export-dropdown">
+    <button class="tb-btn" onclick="toggleDropdown('export-dropdown')">Export &#9660;</button>
+    <div class="tb-dropdown-menu">
+      <button class="tb-dropdown-item" onclick="exportPy();closeDropdowns()">Python script (.py)</button>
+      <button class="tb-dropdown-item" onclick="exportNotebook();closeDropdowns()">Jupyter notebook (.ipynb)</button>
+      <button class="tb-dropdown-item" onclick="exportDocker();closeDropdowns()">Docker project (.zip)</button>
+    </div>
+  </div>
+  <!-- Save / Load dropdown -->
+  <div class="tb-dropdown" id="save-dropdown">
+    <button class="tb-btn primary" onclick="toggleDropdown('save-dropdown')">Projects &#9660;</button>
+    <div class="tb-dropdown-menu">
+      <button class="tb-dropdown-item" onclick="openSaveDialog();closeDropdowns()">Save project...</button>
+      <button class="tb-dropdown-item" onclick="openProjectsDrawer();closeDropdowns()">Load project...</button>
+    </div>
+  </div>
   <a class="tb-btn" href="/" style="text-decoration:none">&#8592; View</a>
 </div>
 
@@ -586,13 +682,14 @@ body {
     </div>
     <div id="code-preview">
       <div class="cp-header">
-        <span>Python Code &mdash; live preview</span>
+        <span>Python Code<span class="cp-dirty-badge" id="cp-dirty-badge">edited</span></span>
         <div class="cp-actions">
+          <button class="cp-btn parse-btn" id="btn-parse" title="Parse code and update canvas">&#8635; Parse</button>
           <button class="cp-btn" id="btn-copy-code">Copy</button>
           <button class="cp-btn" id="btn-collapse-code">&#9660;</button>
         </div>
       </div>
-      <pre id="code-output">import chartcraft as cc
+      <textarea id="code-output" spellcheck="false">import chartcraft as cc
 
 app = cc.App("Dashboard", theme="default")
 
@@ -603,7 +700,7 @@ def home():
 
 if __name__ == "__main__":
     app.run()
-</pre>
+</textarea>
     </div>
   </div>
 
@@ -636,6 +733,22 @@ if __name__ == "__main__":
   <button class="ctx-item" onclick="ctxAction('duplicate')"><span class="ctx-icon">&#9633;</span> Duplicate      <span class="ctx-key">Ctrl+D</span></button>
   <button class="ctx-item danger" onclick="ctxAction('delete')"><span class="ctx-icon">&#10007;</span> Delete       <span class="ctx-key">Del</span></button>
 </div>
+
+<!-- Projects Drawer -->
+<div id="projects-drawer">
+  <div class="pd-header">
+    <span class="pd-title">Saved Projects</span>
+    <button class="pd-close" onclick="closeProjectsDrawer()">&#10005;</button>
+  </div>
+  <div class="pd-save-row">
+    <input id="pd-project-name" placeholder="Project name..." maxlength="80">
+    <button class="pd-save-btn" onclick="saveProject()">Save</button>
+  </div>
+  <div class="pd-list" id="pd-list">
+    <div class="pd-empty">No saved projects yet.</div>
+  </div>
+</div>
+<div id="projects-drawer-overlay" style="display:none;position:fixed;inset:0;z-index:849;background:rgba(0,0,0,0.4)" onclick="closeProjectsDrawer()"></div>
 
 <div id="cc-toast"></div>
 
@@ -1697,9 +1810,11 @@ function removeColor(idx, id) {
 }
 
 // ─── CODE SYNC ────────────────────────────────────────────────────────────
-function syncCode() {
+let _syncDirty = false;   // true when canvas → code sync pending
+
+function getCanvasState() {
   const canvasW = canvasEl.offsetWidth || 1200;
-  const state = {
+  return {
     title: "Dashboard", theme: "default",
     widgets: widgets.map(w => ({
       ...w,
@@ -1708,9 +1823,20 @@ function syncCode() {
       height:  w.h,
     })),
   };
+}
+
+function syncCode() {
+  const state = getCanvasState();
   fetch("/api/layout", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(state) })
     .then(r => r.json())
-    .then(d => { if (d.code) document.getElementById("code-output").textContent = d.code; })
+    .then(d => {
+      if (d.code) {
+        const ta = document.getElementById("code-output");
+        ta.value = d.code;
+        ta.classList.remove("dirty");
+        document.getElementById("cp-dirty-badge").classList.remove("visible");
+      }
+    })
     .catch(() => {});
 }
 
@@ -1782,15 +1908,206 @@ document.getElementById("btn-snap").addEventListener("click", () => {
   document.getElementById("btn-snap").classList.toggle("active", snapOn);
 });
 
-function saveLayout() { syncCode(); toast("Saved"); }
+function saveLayout() { syncCode(); toast("Layout synced"); }
 
 function exportPy() {
-  const code = document.getElementById("code-output").textContent;
-  const blob  = new Blob([code], { type:"text/x-python" });
-  const url   = URL.createObjectURL(blob);
-  const a     = document.createElement("a"); a.href = url; a.download = "dashboard.py"; a.click();
+  const code = document.getElementById("code-output").value;
+  const blob = new Blob([code], { type: "text/x-python" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a"); a.href = url; a.download = "dashboard.py"; a.click();
   URL.revokeObjectURL(url);
 }
+
+function exportNotebook() {
+  const state = getCanvasState();
+  fetch("/api/export/notebook", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(state),
+  })
+    .then(r => r.blob())
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "dashboard.ipynb"; a.click();
+      URL.revokeObjectURL(url);
+      toast("Notebook exported");
+    })
+    .catch(e => toast("Export failed: " + e));
+}
+
+function exportDocker() {
+  const state = getCanvasState();
+  fetch("/api/export/docker", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(state),
+  })
+    .then(r => r.blob())
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "dashboard_docker.zip"; a.click();
+      URL.revokeObjectURL(url);
+      toast("Docker project exported");
+    })
+    .catch(e => toast("Export failed: " + e));
+}
+
+// ─── BIDIRECTIONAL PARSE (Python → Canvas) ────────────────────────────────
+function parseCode() {
+  const code = document.getElementById("code-output").value;
+  if (!code.trim()) return;
+  fetch("/api/parse", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+  })
+    .then(r => r.json())
+    .then(state => {
+      if (state.error) { toast("Parse error — check console"); console.error(state.error); return; }
+      applyState(state);
+      toast("Canvas updated from code");
+    })
+    .catch(e => toast("Parse failed: " + e));
+}
+
+function applyState(state) {
+  // Clear current canvas
+  push();
+  widgets.length = 0;
+  canvasEl.querySelectorAll(".widget-box").forEach(el => el.remove());
+  selectedIds.clear();
+
+  // Re-create widgets from first page (multi-page support via future page tabs)
+  const pages = state.pages || [];
+  const allWidgets = pages.flatMap(p => p.widgets || []);
+
+  allWidgets.forEach(w => {
+    // Ensure required fields
+    w.id      = w.id      || uid();
+    w.x       = w.x       ?? 0;
+    w.y       = w.y       ?? 0;
+    w.w       = w.w       ?? 480;
+    w.h       = w.h       ?? 320;
+    w.zIndex  = w.zIndex  ?? 1;
+    w.title   = w.title   ?? "";
+    w.colors  = w.colors  || null;
+    w.animate = w.animate ?? true;
+    w.tooltip = w.tooltip ?? true;
+    widgets.push(w);
+    const el = createWidgetEl(w);
+    canvasEl.appendChild(el);
+    renderPreview(w);
+  });
+
+  renderProps();
+  syncCode();
+}
+
+// ─── PROJECTS ─────────────────────────────────────────────────────────────
+let _currentProjectId = null;
+
+function openSaveDialog() {
+  const name = document.getElementById("pd-project-name");
+  name.value = name.value || "My Dashboard";
+  openProjectsDrawer();
+  name.focus();
+}
+
+function openProjectsDrawer() {
+  document.getElementById("projects-drawer").classList.add("open");
+  document.getElementById("projects-drawer-overlay").style.display = "block";
+  loadProjectsList();
+}
+
+function closeProjectsDrawer() {
+  document.getElementById("projects-drawer").classList.remove("open");
+  document.getElementById("projects-drawer-overlay").style.display = "none";
+}
+
+function saveProject() {
+  const name = document.getElementById("pd-project-name").value.trim() || "Untitled";
+  const state = getCanvasState();
+  const id    = _currentProjectId || String(Date.now());
+
+  fetch("/api/projects", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, name, state }),
+  })
+    .then(r => r.json())
+    .then(result => {
+      _currentProjectId = result.id;
+      toast(`Saved: ${name}`);
+      loadProjectsList();
+    })
+    .catch(e => toast("Save failed: " + e));
+}
+
+function loadProjectsList() {
+  fetch("/api/projects")
+    .then(r => r.json())
+    .then(list => renderProjectsList(list))
+    .catch(() => {});
+}
+
+function renderProjectsList(list) {
+  const el = document.getElementById("pd-list");
+  if (!list || list.length === 0) {
+    el.innerHTML = '<div class="pd-empty">No saved projects yet.<br>Enter a name above and click Save.</div>';
+    return;
+  }
+  el.innerHTML = list.map(p => {
+    const dt = new Date(p.updated_at * 1000).toLocaleString();
+    return `
+      <div class="pd-item">
+        <div style="flex:1">
+          <div class="pd-item-name">${p.name}</div>
+          <div class="pd-item-date">${dt}</div>
+        </div>
+        <button class="pd-item-load" onclick="loadProject('${p.id}','${p.name.replace(/'/g,"\\'")}')">Load</button>
+        <button class="pd-item-del"  onclick="deleteProject('${p.id}')">&#10005;</button>
+      </div>
+    `;
+  }).join("");
+}
+
+function loadProject(id, name) {
+  fetch("/api/projects/" + id)
+    .then(r => r.json())
+    .then(p => {
+      if (p.error) { toast("Load failed"); return; }
+      _currentProjectId = id;
+      document.getElementById("pd-project-name").value = name;
+      applyState(p.state);
+      closeProjectsDrawer();
+      toast(`Loaded: ${name}`);
+    })
+    .catch(e => toast("Load failed: " + e));
+}
+
+function deleteProject(id) {
+  if (!confirm("Delete this project?")) return;
+  fetch("/api/projects/" + id, { method: "DELETE" })
+    .then(r => r.json())
+    .then(() => loadProjectsList())
+    .catch(() => {});
+}
+
+// ─── TOOLBAR DROPDOWNS ────────────────────────────────────────────────────
+function toggleDropdown(id) {
+  const el = document.getElementById(id);
+  const wasOpen = el.classList.contains("open");
+  closeDropdowns();
+  if (!wasOpen) el.classList.add("open");
+}
+function closeDropdowns() {
+  document.querySelectorAll(".tb-dropdown.open").forEach(el => el.classList.remove("open"));
+}
+document.addEventListener("click", e => {
+  if (!e.target.closest(".tb-dropdown")) closeDropdowns();
+});
 
 // Code preview collapse
 let codeCollapsed = false;
@@ -1800,7 +2117,15 @@ document.getElementById("btn-collapse-code").addEventListener("click", () => {
   document.getElementById("btn-collapse-code").textContent = codeCollapsed ? "\u25b2" : "\u25bc";
 });
 document.getElementById("btn-copy-code").addEventListener("click", () => {
-  navigator.clipboard.writeText(document.getElementById("code-output").textContent).then(() => toast("Copied!"));
+  navigator.clipboard.writeText(document.getElementById("code-output").value).then(() => toast("Copied!"));
+});
+
+document.getElementById("btn-parse").addEventListener("click", parseCode);
+
+// Mark code as "dirty" when user edits it manually
+document.getElementById("code-output").addEventListener("input", () => {
+  document.getElementById("code-output").classList.add("dirty");
+  document.getElementById("cp-dirty-badge").classList.add("visible");
 });
 
 // Properties tabs
