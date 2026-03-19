@@ -53,6 +53,9 @@ class CCHandler(BaseHTTPRequestHandler):
             "/api/projects":        self._api_projects_list,
             "/api/export/notebook": self._api_export_notebook,
             "/api/export/docker":   self._api_export_docker,
+            "/api/connections":     self._api_connections_list,
+            "/api/schema":          self._api_schema,
+            "/api/filter_options":  self._api_filter_options,
         }
 
         # Dynamic page routes (everything that matches a registered page)
@@ -84,6 +87,8 @@ class CCHandler(BaseHTTPRequestHandler):
             "/api/projects":        self._api_projects_save,
             "/api/export/notebook": self._api_export_notebook,
             "/api/export/docker":   self._api_export_docker,
+            "/api/query":           self._api_query,
+            "/api/connections":     self._api_connections_save,
         }
         handler = routes.get(path)
         if handler:
@@ -98,6 +103,8 @@ class CCHandler(BaseHTTPRequestHandler):
         path = parsed.path.rstrip("/") or "/"
         if path.startswith("/api/projects/"):
             self._api_project_delete(path)
+        elif path.startswith("/api/connections/"):
+            self._api_connection_delete(path)
         else:
             self._send_404()
 
@@ -127,10 +134,14 @@ class CCHandler(BaseHTTPRequestHandler):
             html = html.replace("{{THEME_NAME}}", theme.name)
             html = html.replace("{{THEME_LIST}}", dumps(list(self.server_ref._themes_list())))
 
-            # Start refresh threads for live components
+            # Start refresh threads — push full specs via SSE
             sse = get_manager()
-            for comp_id, data_fn, interval in dashboard.refreshable_components():
-                sse.start_refresh(comp_id, data_fn, interval)
+            from chartcraft.core.serializer import dumps as cc_dumps
+            for comp_id, spec_fn, interval in dashboard.refreshable_specs():
+                sse.start_refresh(
+                    comp_id, spec_fn, interval,
+                    serialise_fn=lambda s, _id=comp_id: cc_dumps({"id": _id, "spec": s}),
+                )
 
             self._send_html(html)
         except Exception:
@@ -361,6 +372,126 @@ class CCHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
+        except Exception:
+            self._send_json({"error": traceback.format_exc()}, status=500)
+
+    # ------------------------------------------------------------------
+    # Phase 5 — Query API, Connections, Filter Options
+    # ------------------------------------------------------------------
+
+    def _api_query(self):
+        """POST /api/query — execute SQL against a registered or inline connector."""
+        body = self._read_body()
+        try:
+            payload = loads(body)
+        except Exception:
+            self._send_json({"error": "Invalid JSON"}, status=400)
+            return
+        try:
+            from chartcraft.server.query_api import execute_query, get_connector_str
+            conn_str = payload.get("conn_str") or get_connector_str(payload.get("conn_id", ""))
+            if not conn_str:
+                self._send_json({"error": "No connection string provided"}, status=400)
+                return
+            sql   = payload.get("sql", "").strip()
+            limit = int(payload.get("limit", 500))
+            result = execute_query(conn_str, sql, limit=limit)
+            self._send_json(result)
+        except Exception:
+            self._send_json({"error": traceback.format_exc()}, status=500)
+
+    def _api_schema(self):
+        """GET /api/schema?conn_id=...&conn_str=... — return tables + columns."""
+        qs = parse_qs(urlparse(self.path).query)
+        try:
+            from chartcraft.server.query_api import get_schema, get_connector_str
+            conn_str = qs.get("conn_str", [""])[0] or get_connector_str(qs.get("conn_id", [""])[0])
+            if not conn_str:
+                self._send_json({"error": "No connection string provided"}, status=400)
+                return
+            self._send_json(get_schema(conn_str))
+        except Exception:
+            self._send_json({"error": traceback.format_exc()}, status=500)
+
+    def _api_connections_list(self):
+        """GET /api/connections — list all registered connectors."""
+        try:
+            from chartcraft.server.query_api import list_connectors
+            self._send_json(list_connectors())
+        except Exception:
+            self._send_json({"error": traceback.format_exc()}, status=500)
+
+    def _api_connections_save(self):
+        """POST /api/connections — register or update a connector."""
+        body = self._read_body()
+        try:
+            payload = loads(body)
+        except Exception:
+            self._send_json({"error": "Invalid JSON"}, status=400)
+            return
+        try:
+            from chartcraft.server.query_api import save_connector
+            import time as _time
+            conn_id  = payload.get("id") or str(int(_time.time() * 1000))
+            name     = payload.get("name", "Connector")
+            conn_str = payload.get("conn_str", "")
+            if not conn_str:
+                self._send_json({"error": "conn_str required"}, status=400)
+                return
+            result = save_connector(conn_id, name, conn_str)
+            self._send_json(result)
+        except Exception:
+            self._send_json({"error": traceback.format_exc()}, status=500)
+
+    def _api_connection_delete(self, path: str):
+        """DELETE /api/connections/{id} — delete a connector."""
+        conn_id = path.split("/api/connections/", 1)[-1].rstrip("/")
+        try:
+            from chartcraft.server.query_api import delete_connector
+            ok = delete_connector(conn_id)
+            self._send_json({"ok": ok})
+        except Exception:
+            self._send_json({"error": traceback.format_exc()}, status=500)
+
+    def _api_filter_options(self):
+        """
+        GET /api/filter_options?page=...&filter_id=...&filters=base64json
+        Returns updated option list for a dependent filter based on current filter state.
+        """
+        qs = parse_qs(urlparse(self.path).query)
+        try:
+            import base64
+            page_path = qs.get("page", ["/"])[0]
+            filter_id = qs.get("filter_id", [""])[0]
+            raw_f     = qs.get("filters", ["{}"])[0]
+            try:
+                filter_state = json.loads(base64.b64decode(raw_f + "==").decode())
+            except Exception:
+                filter_state = {}
+
+            page_fn = self.server_ref.pages.get(page_path)
+            if not page_fn:
+                self._send_json({"error": "Page not found"}, status=404)
+                return
+
+            dashboard = page_fn()
+            # Find the filter with this id
+            target = next((f for f in dashboard.filters if f.id == filter_id or f.name == filter_id), None)
+            if not target:
+                self._send_json({"options": []})
+                return
+
+            # If filter has a callable options source, call it with current filters
+            options = target.options
+            if callable(options):
+                try:
+                    import inspect
+                    sig = inspect.signature(options)
+                    options = options(filter_state) if len(sig.parameters) > 0 else options()
+                except Exception:
+                    options = []
+
+            self._send_json({"id": filter_id, "options": options or []})
         except Exception:
             self._send_json({"error": traceback.format_exc()}, status=500)
 

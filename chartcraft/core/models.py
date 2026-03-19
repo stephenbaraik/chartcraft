@@ -755,3 +755,21 @@ class Dashboard:
         for chart in self.charts:
             if hasattr(chart, "refresh") and chart.refresh and chart.data_fn:
                 yield chart.id, chart.data_fn, chart.refresh
+
+    def refreshable_specs(self, filters: dict = None):
+        """
+        Yield (id, spec_fn, interval) where spec_fn() returns the full component
+        spec dict — used by SSE to push complete chart/KPI updates to the browser.
+        """
+        for kpi in self.kpis:
+            if kpi.refresh and (kpi.data_fn or callable(kpi.value)):
+                _k = kpi
+                def _kspec(k=_k, f=filters):
+                    return {"type": "kpi", **k.to_spec(f)}
+                yield kpi.id, _kspec, kpi.refresh
+        for chart in self.charts:
+            if hasattr(chart, "refresh") and chart.refresh and chart.data_fn:
+                _c = chart
+                def _cspec(c=_c, f=filters):
+                    return {"type": "chart", **c.to_spec(f)}
+                yield chart.id, _cspec, chart.refresh
