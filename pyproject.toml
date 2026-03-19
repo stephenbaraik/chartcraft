@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chartcraft"
-version = "0.1.0"
+version = "0.1.1"
 description = "Python-powered dashboards that rival Power BI & Tableau."
 readme = "README.md"
 license = "MIT"
