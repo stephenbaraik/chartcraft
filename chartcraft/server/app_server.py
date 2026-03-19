@@ -18,19 +18,23 @@ class AppServer:
     def __init__(self, title: str, theme: str = "default"):
         self.title = title
         self.pages: Dict[str, Callable] = {}
-        self._theme_name = theme
-        self.theme_obj: Theme = get_theme(theme)
-        self._password: Optional[str] = None   # HTTP Basic Auth password (username = "admin")
-        self._token: Optional[str] = None      # Bearer token / ?token= query param
+        self._theme_name = theme or "default"
+        self.theme_obj: Theme = get_theme(self._theme_name)
+        self._password: Optional[str] = (
+            None  # HTTP Basic Auth password (username = "admin")
+        )
+        self._token: Optional[str] = None  # Bearer token / ?token= query param
 
     def _themes_list(self):
         return list(THEMES.keys())
 
     def page(self, path: str):
         """Decorator — register a dashboard page at the given URL path."""
+
         def decorator(fn: Callable) -> Callable:
             self.pages[path] = fn
             return fn
+
         return decorator
 
     def set_theme(self, name: str):
@@ -56,10 +60,10 @@ class AppServer:
         server = ThreadingHTTPServer((host, port), CCHandler)
         url = f"http://{host}:{port}"
 
-        print(f"\n  ◆ ChartCraft  →  {url}")
-        print(f"  Builder       →  {url}/builder")
-        print(f"  Theme         →  {self._theme_name}")
-        print(f"  Pages         →  {list(self.pages.keys())}")
+        print(f"\n  [ChartCraft]  ->  {url}")
+        print(f"  Builder       ->  {url}/builder")
+        print(f"  Theme         ->  {self._theme_name}")
+        print(f"  Pages         ->  {list(self.pages.keys())}")
         print("\n  Press Ctrl+C to stop.\n")
 
         if open_browser:
@@ -82,7 +86,7 @@ class AppServer:
         html = self._render_static(dashboard)
         with open(path, "w", encoding="utf-8") as f:
             f.write(html)
-        print(f"  ◆ Exported → {path}")
+            print(f"  [Exported] -> {path}")
         return path
 
     def save_all(self, output_dir: str, theme: str = None) -> list:
@@ -92,6 +96,7 @@ class AppServer:
         Returns a list of file paths written.
         """
         import os as _os
+
         if theme:
             self.set_theme(theme)
         _os.makedirs(output_dir, exist_ok=True)
@@ -123,6 +128,7 @@ class AppServer:
     def _render_static(self, dashboard) -> str:
         from pathlib import Path
         from chartcraft.core.serializer import dumps
+
         static_dir = Path(__file__).parent.parent / "static"
         template = (static_dir / "viewer.html").read_text(encoding="utf-8")
         theme = self.theme_obj
