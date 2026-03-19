@@ -235,8 +235,19 @@ body {
 .cc-chart-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
 .cc-chart-title { font-weight: 600; font-size: 0.95rem; color: var(--cc-text); }
 .cc-chart-subtitle { font-size: 0.78rem; color: var(--cc-text-muted); margin-top: 2px; }
-.cc-chart-actions { display: flex; gap: 6px; opacity: 0; transition: opacity 0.2s; }
+.cc-chart-actions { display: flex; gap: 6px; align-items: center; opacity: 0; transition: opacity 0.2s; }
 .cc-chart-card:hover .cc-chart-actions { opacity: 1; }
+.cc-live-badge {
+  font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em;
+  color: var(--cc-success, #10B981); padding: 2px 6px;
+  border-radius: 10px; border: 1px solid var(--cc-success, #10B981);
+  animation: cc-pulse 2s infinite;
+}
+@keyframes cc-pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+.cc-last-updated {
+  font-size: 0.65rem; color: var(--cc-text-muted); font-family: var(--cc-font-mono);
+  min-width: 56px; text-align: right;
+}
 .cc-chart-action-btn {
   padding: 3px 8px;
   border-radius: 4px;
@@ -391,9 +402,20 @@ const _ECHARTS_TH  = {{ECHARTS_THEME}};
 const _STATIC_MODE = false; // {{STATIC_MODE}}
 
 // ── State ─────────────────────────────────────────────────────────────────
-let _filterState = {};
-let _instances   = {};   // id → echarts instance
-let _tableState  = {};   // id → { page, sort, search }
+let _filterState      = {};
+let _crossFilterState = {};   // { dim: value } — set by clicking chart data points
+let _instances        = {};   // id → echarts instance
+let _chartSpecs       = {};   // id → spec — for cross-filter dim tracking
+let _tableState       = {};   // id → { page, sort, search }
+
+// Restore filter state from URL on load
+(function _restoreFilterURL() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const enc = params.get("f");
+    if (enc) _filterState = JSON.parse(atob(enc));
+  } catch {}
+})();
 
 // ── ECharts theme registration ─────────────────────────────────────────────
 echarts.registerTheme("cc", _ECHARTS_TH);
@@ -433,34 +455,36 @@ function renderFilters(filters) {
 
   const groups = filters.map(f => {
     let ctrl = "";
+    const dep = f.depends_on ? `data-depends="${f.depends_on}"` : "";
+    const onChange = `onchange="onFilterChange('${f.id}')"`;
     if (f.type === "select") {
       const opts = (f.options || []).map(o =>
         `<option value="${o}" ${_filterState[f.name] == o ? "selected" : ""}>${o}</option>`
       ).join("");
-      ctrl = `<select id="f-${f.id}" data-filter="${f.name}"><option value="">All</option>${opts}</select>`;
+      ctrl = `<select id="f-${f.id}" data-filter="${f.name}" ${dep} ${onChange}><option value="">All</option>${opts}</select>`;
     } else if (f.type === "multi_select") {
       const opts = (f.options || []).map(o =>
         `<option value="${o}" ${(_filterState[f.name] || []).includes(o) ? "selected" : ""}>${o}</option>`
       ).join("");
-      ctrl = `<select id="f-${f.id}" data-filter="${f.name}" multiple size="3">${opts}</select>`;
+      ctrl = `<select id="f-${f.id}" data-filter="${f.name}" ${dep} ${onChange} multiple size="3">${opts}</select>`;
     } else if (f.type === "date_range") {
       const val = _filterState[f.name] || {};
-      ctrl = `<input type="date" id="f-${f.id}-from" data-filter="${f.name}_from" value="${val.from || ""}">
-              <input type="date" id="f-${f.id}-to" data-filter="${f.name}_to" value="${val.to || ""}">`;
+      ctrl = `<input type="date" id="f-${f.id}-from" data-filter="${f.name}_from" value="${val.from || ""}" ${onChange}>
+              <input type="date" id="f-${f.id}-to" data-filter="${f.name}_to" value="${val.to || ""}" ${onChange}>`;
     } else if (f.type === "slider") {
       const range = f.options || [0, 100];
       const val = _filterState[f.name] ?? range[0];
       ctrl = `<input type="range" id="f-${f.id}" data-filter="${f.name}"
                      min="${range[0]}" max="${range[1]}" value="${val}"
-                     oninput="this.nextElementSibling.textContent=this.value">
+                     oninput="this.nextElementSibling.textContent=this.value;onFilterChange('${f.id}')">
               <span>${val}</span>`;
     } else if (f.type === "toggle") {
       const checked = _filterState[f.name] ? "checked" : "";
-      ctrl = `<input type="checkbox" id="f-${f.id}" data-filter="${f.name}" ${checked}>`;
+      ctrl = `<input type="checkbox" id="f-${f.id}" data-filter="${f.name}" ${checked} ${onChange}>`;
     } else {
       ctrl = `<input type="search" id="f-${f.id}" data-filter="${f.name}"
                      placeholder="${f.placeholder || "Search..."}"
-                     value="${_filterState[f.name] || ""}">`;
+                     value="${_filterState[f.name] || ""}" ${onChange}>`;
     }
     return `<div class="cc-filter-group">
               <label for="f-${f.id}">${f.label}</label>
@@ -468,9 +492,17 @@ function renderFilters(filters) {
             </div>`;
   }).join("");
 
+  const autoTgl = `
+    <label style="display:flex;align-items:center;gap:5px;font-size:0.78rem;color:var(--cc-text-muted);margin-left:auto;cursor:pointer">
+      <input type="checkbox" id="cc-auto-apply" ${_autoApply ? "checked" : ""}
+        onchange="_autoApply=this.checked">
+      Auto
+    </label>`;
+
   bar.innerHTML = groups +
     `<button class="cc-filter-apply" onclick="applyFilters()">Apply</button>
-     <button class="cc-filter-reset" onclick="resetFilters()">Reset</button>`;
+     <button class="cc-filter-reset" onclick="resetFilters()">Reset</button>
+     ${autoTgl}`;
 }
 
 function applyFilters() {
@@ -485,20 +517,94 @@ function applyFilters() {
       _filterState[name] = el.value || undefined;
     }
   });
+  // Persist to URL for shareable links
+  try {
+    const enc = btoa(JSON.stringify(_filterState));
+    history.replaceState(null, "", "?f=" + enc);
+  } catch {}
   fetchAndRender();
 }
 
 function resetFilters() {
   _filterState = {};
+  _crossFilterState = {};
+  _clearCrossFilterHighlights();
+  history.replaceState(null, "", window.location.pathname);
   fetchAndRender();
+}
+
+// ── Cross-filter ───────────────────────────────────────────────────────────
+function setCrossFilter(chartId, params) {
+  // Toggle: clicking the same value again clears the cross-filter
+  const dim = params.name ?? (Array.isArray(params.data) ? params.data[0] : null);
+  if (dim === null || dim === undefined) return;
+
+  const key = "_cross";
+  if (_crossFilterState[key] === String(dim)) {
+    delete _crossFilterState[key];
+    _clearCrossFilterHighlights();
+  } else {
+    _crossFilterState[key] = String(dim);
+    _applyCrossFilterHighlights(chartId, dim);
+  }
+  fetchAndRender();
+}
+
+function _applyCrossFilterHighlights(sourceId, dim) {
+  Object.entries(_instances).forEach(([id, chart]) => {
+    if (!chart) return;
+    if (id === sourceId) return;
+    chart.dispatchAction({ type: "highlight", name: dim });
+    chart.dispatchAction({ type: "legendAllSelect" });
+  });
+}
+
+function _clearCrossFilterHighlights() {
+  Object.values(_instances).forEach(chart => {
+    if (chart) {
+      try { chart.dispatchAction({ type: "downplay" }); } catch {}
+    }
+  });
+}
+
+// ── Cascading filter options ───────────────────────────────────────────────
+let _autoApply = false;
+let _filterDebounce = null;
+
+function onFilterChange(filterId) {
+  // Re-fetch options for any filters that depend on this one
+  document.querySelectorAll(`[data-depends="${filterId}"]`).forEach(el => {
+    _refreshFilterOptions(el.dataset.filter, el.id);
+  });
+  if (_autoApply) {
+    clearTimeout(_filterDebounce);
+    _filterDebounce = setTimeout(applyFilters, 350);
+  }
+}
+
+function _refreshFilterOptions(filterName, elId) {
+  const page = window.location.pathname;
+  const enc = btoa(JSON.stringify(_filterState));
+  const url = `/api/filter_options?page=${encodeURIComponent(page)}&filter_id=${encodeURIComponent(filterName)}&filters=${enc}`;
+  fetch(url)
+    .then(r => r.json())
+    .then(result => {
+      const sel = document.getElementById(elId);
+      if (!sel) return;
+      const cur = sel.value;
+      sel.innerHTML = `<option value="">All</option>` +
+        (result.options || []).map(o => `<option value="${o}"${o == cur ? " selected" : ""}>${o}</option>`).join("");
+    })
+    .catch(() => {});
 }
 
 function fetchAndRender() {
   const page = window.location.pathname;
+  const merged = { ..._filterState, ..._crossFilterState };
   fetch("/api/filter", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ page, filters: _filterState }),
+    body: JSON.stringify({ page, filters: merged }),
   })
   .then(r => r.json())
   .then(spec => renderDashboard(spec))
@@ -626,7 +732,9 @@ function renderChartCell(c) {
         ${c.subtitle ? `<div class="cc-chart-subtitle">${c.subtitle}</div>` : ""}
       </div>
       <div class="cc-chart-actions">
-        <button class="cc-chart-action-btn" onclick="downloadChart('${c.id}')" title="Download">⤓</button>
+        ${c.refresh ? `<span class="cc-live-badge" id="badge-${c.id}" title="Live — refreshes every ${c.refresh}s">&#9679; LIVE</span>` : ""}
+        <span class="cc-last-updated" id="lu-${c.id}"></span>
+        <button class="cc-chart-action-btn" onclick="downloadChart('${c.id}')" title="Download PNG">&#8595;</button>
       </div>
     </div>
     <div id="chart-${c.id}" class="cc-chart-canvas" style="height:${c.height || 400}px"></div>
@@ -681,6 +789,14 @@ function renderChart(c) {
   }
 
   chart.setOption(option);
+
+  // Cross-filter: click on data point sets filter + highlights across all charts
+  if (c.click_action !== "none") {
+    chart.on("click", params => setCrossFilter(c.id, params));
+  }
+
+  // Track spec for SSE refreshes
+  _chartSpecs[c.id] = c;
 
   // Resize observer
   const ro = new ResizeObserver(() => chart.resize());
@@ -1130,20 +1246,43 @@ function connectSSE() {
 
   es.addEventListener("connected", () => { dot.className = "connected"; });
   es.addEventListener("heartbeat", () => {});
+
   es.addEventListener("refresh", e => {
     const payload = JSON.parse(e.data);
-    const { id, data } = payload;
-    // Update KPI
-    const kpiEl = document.getElementById("kpi-" + id);
-    if (kpiEl) {
-      const valEl = kpiEl.querySelector(".cc-kpi-value");
-      if (valEl && data !== undefined) valEl.textContent = String(data);
+    const { id, spec } = payload;
+
+    if (!spec) return;
+
+    // Mark last-updated timestamp
+    const luEl = document.getElementById("lu-" + id);
+    if (luEl) {
+      const t = new Date().toLocaleTimeString();
+      luEl.textContent = t;
     }
-    // Update chart
-    const inst = _instances[id];
-    if (inst) {
-      // Re-fetch spec for this component and update
-      inst.setOption({ series: [{ data }] }, { notMerge: false });
+
+    // KPI update
+    if (spec.type === "kpi") {
+      const kpiEl = document.getElementById("kpi-" + id);
+      if (kpiEl) {
+        const valEl = kpiEl.querySelector(".cc-kpi-value");
+        if (valEl) valEl.textContent = (spec.prefix || "") + (spec.value ?? "") + (spec.suffix || "");
+        const chgEl = kpiEl.querySelector(".cc-kpi-change");
+        if (chgEl && spec.change != null) {
+          const cls = spec.change > 0 ? "up" : spec.change < 0 ? "down" : "neutral";
+          const arr = spec.change > 0 ? "▲" : spec.change < 0 ? "▼" : "–";
+          chgEl.className = "cc-kpi-change " + cls;
+          chgEl.textContent = `${arr} ${Math.abs(spec.change).toFixed(1)}%`;
+        }
+      }
+      return;
+    }
+
+    // Chart update — re-render via full spec
+    if (spec.type === "chart" || spec.id) {
+      const chartSpec = { ...spec };
+      if (chartSpec.type === "chart") delete chartSpec.type;
+      _chartSpecs[id] = chartSpec;
+      renderChart(chartSpec);
     }
   });
 

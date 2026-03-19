@@ -1584,17 +1584,44 @@ function renderProps() {
 
   else if (tab === "data") {
     body.innerHTML = `
+      <div class="pp-section-label">Columns</div>
       <div class="pp-field"><label>X Column / Category</label>
         <input type="text" value="${w.x_col||""}" placeholder="column name" oninput="propSet('${id}','x_col',this.value)"></div>
       <div class="pp-field"><label>Y Column / Value</label>
-        <input type="text" value="${w.y_col||""}" placeholder="column name or comma-separated" oninput="propSet('${id}','y_col',this.value)"></div>
+        <input type="text" value="${w.y_col||""}" placeholder="col or [col1,col2]" oninput="propSet('${id}','y_col',this.value)"></div>
+      <div class="pp-section-label" style="margin-top:10px">SQL Query</div>
+      <div class="pp-field">
+        <label>Connection
+          <button style="float:right;font-size:0.7rem;padding:1px 6px;border-radius:3px;border:1px solid var(--cc-border);background:transparent;color:var(--cc-accent);cursor:pointer"
+            onclick="openConnectorsPanel('${id}')">Manage</button>
+        </label>
+        <select id="sql-conn-${id}" style="width:100%"
+          onchange="propSet('${id}','sql_conn_id',this.value);loadSchemaBrowser('${id}',this.value)">
+          <option value="">— inline JSON below —</option>
+          <option value="__add__">+ Add connector...</option>
+        </select>
+      </div>
+      <div class="pp-field"><label>SQL
+        <button style="float:right;font-size:0.7rem;padding:1px 6px;border-radius:3px;border:1px solid var(--cc-border);background:var(--cc-accent);color:#fff;cursor:pointer"
+          onclick="runSqlQuery('${id}')">Run &#9654;</button>
+      </label>
+        <textarea id="sql-query-${id}" style="font-family:var(--cc-font-mono);font-size:0.75rem;height:90px;resize:vertical"
+          placeholder="SELECT * FROM sales LIMIT 100"
+          oninput="propSet('${id}','sql_query',this.value)">${w.sql_query||""}</textarea></div>
+      <div id="sql-schema-${id}" style="margin-bottom:8px"></div>
+      <div id="sql-preview-${id}" style="font-size:0.72rem;color:var(--cc-text-muted)"></div>
+      <div class="pp-section-label" style="margin-top:10px">Manual JSON</div>
       <div class="pp-field"><label>Custom data (JSON)</label>
         <textarea placeholder='{"labels":["A","B"],"datasets":[{"data":[10,20]}]}'
           oninput="propSet('${id}','customData',this.value)">${w.customData||""}</textarea></div>
+      <div class="pp-section-label" style="margin-top:10px">Live Refresh</div>
       <div class="pp-field"><label>Refresh interval (seconds, 0 = off)</label>
-        <input type="number" value="${w.refresh||0}" min="0" oninput="propSet('${id}','refresh',parseInt(this.value)||null)"></div>
-      <div class="pp-field"><label>Data source label</label>
-        <input type="text" value="${w.dataLabel||""}" placeholder="e.g. Sales DB" oninput="propSet('${id}','dataLabel',this.value)"></div>`;
+        <input type="number" value="${w.refresh||0}" min="0" oninput="propSet('${id}','refresh',parseInt(this.value)||null)"></div>`;
+
+    // Populate connector dropdown
+    populateConnectorDropdown(`sql-conn-${id}`, w.sql_conn_id || "");
+    // Load schema if connector is set
+    if (w.sql_conn_id) loadSchemaBrowser(id, w.sql_conn_id);
   }
 
   else if (tab === "layout") {
@@ -1799,6 +1826,145 @@ function openSingleColorPicker(id, prop, swatchEl) {
     input.oninput = () => { w[prop] = input.value; swatchEl.style.background = input.value; syncCode(); };
     input.click();
   }
+}
+
+// ─── SQL EDITOR ───────────────────────────────────────────────────────────
+let _connectors = [];   // cached connector list
+
+function populateConnectorDropdown(selectId, currentValue) {
+  fetch("/api/connections")
+    .then(r => r.json())
+    .then(list => {
+      _connectors = list;
+      const sel = document.getElementById(selectId);
+      if (!sel) return;
+      // Keep first two options, inject connectors after them
+      const existing = [...sel.options].filter(o => o.value === "" || o.value === "__add__");
+      sel.innerHTML = existing.map(o => `<option value="${o.value}">${o.text}</option>`).join("") +
+        list.map(c => `<option value="${c.id}" ${c.id === currentValue ? "selected" : ""}>${c.name}</option>`).join("");
+    })
+    .catch(() => {});
+}
+
+function loadSchemaBrowser(widgetId, connId) {
+  const container = document.getElementById(`sql-schema-${widgetId}`);
+  if (!container || !connId || connId === "__add__") return;
+
+  const conn = _connectors.find(c => c.id === connId);
+  if (!conn) return;
+
+  container.innerHTML = `<div style="font-size:0.7rem;color:var(--cc-text-muted)">Loading schema...</div>`;
+
+  fetch(`/api/schema?conn_id=${encodeURIComponent(connId)}`)
+    .then(r => r.json())
+    .then(schema => {
+      if (schema.error) { container.innerHTML = `<div style="color:var(--cc-danger);font-size:0.75rem">${schema.error}</div>`; return; }
+      const tables = schema.tables || [];
+      if (!tables.length) { container.innerHTML = `<div style="font-size:0.7rem;color:var(--cc-text-muted)">No tables found</div>`; return; }
+      container.innerHTML = `
+        <div class="pp-section-label">Schema</div>
+        <div id="schema-tree-${widgetId}" style="font-size:0.75rem">
+          ${tables.map(t => `
+            <div style="margin-bottom:4px">
+              <div style="cursor:pointer;color:var(--cc-text-secondary);padding:2px 0"
+                onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';insertSql('${widgetId}','${t.name}')">
+                &#9654; <b>${t.name}</b> <span style="color:var(--cc-text-muted)">(${t.columns.length} cols)</span>
+              </div>
+              <div style="display:none;padding-left:12px;color:var(--cc-text-muted)">
+                ${t.columns.map(c => `<div style="cursor:pointer;padding:1px 0" onclick="insertSql('${widgetId}','${t.name}.${c.name}')">${c.name} <em style="font-size:0.68rem">${c.type}</em></div>`).join("")}
+              </div>
+            </div>`).join("")}
+        </div>`;
+    })
+    .catch(() => { container.innerHTML = ""; });
+}
+
+function insertSql(widgetId, text) {
+  const ta = document.getElementById(`sql-query-${widgetId}`);
+  if (!ta) return;
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  ta.value = ta.value.slice(0, start) + text + ta.value.slice(end);
+  ta.selectionStart = ta.selectionEnd = start + text.length;
+  ta.focus();
+  propSet(widgetId, "sql_query", ta.value);
+}
+
+function runSqlQuery(widgetId) {
+  const w = getW(widgetId);
+  if (!w) return;
+  const sql     = w.sql_query || document.getElementById(`sql-query-${widgetId}`)?.value || "";
+  const connId  = w.sql_conn_id;
+  const preview = document.getElementById(`sql-preview-${widgetId}`);
+  if (!preview) return;
+  if (!sql.trim()) { preview.textContent = "Enter a SQL query above."; return; }
+
+  const conn = _connectors.find(c => c.id === connId);
+  const payload = conn ? { conn_id: connId, sql } : { conn_str: w.sql_conn_str || "", sql };
+
+  preview.textContent = "Running...";
+  preview.style.color = "var(--cc-text-muted)";
+
+  fetch("/api/query", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...payload, limit: 10 }),
+  })
+    .then(r => r.json())
+    .then(result => {
+      if (result.error) {
+        preview.innerHTML = `<span style="color:var(--cc-danger)">${result.error}</span>`;
+        return;
+      }
+      const { columns, rows, row_count } = result;
+      if (!columns || !columns.length) { preview.textContent = "No results."; return; }
+      // Show mini preview table
+      const maxCols = Math.min(columns.length, 5);
+      const maxRows = Math.min(rows.length, 5);
+      const hdr = columns.slice(0, maxCols).map(c => `<th>${c}</th>`).join("");
+      const body = rows.slice(0, maxRows).map(r =>
+        `<tr>${r.slice(0, maxCols).map(v => `<td>${v ?? ""}</td>`).join("")}</tr>`
+      ).join("");
+      preview.innerHTML = `
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:0.72rem">
+            <thead style="color:var(--cc-text-muted)"><tr>${hdr}</tr></thead>
+            <tbody>${body}</tbody>
+          </table>
+          <div style="margin-top:4px;color:var(--cc-text-muted)">${row_count} total rows${result.truncated ? " (truncated)" : ""}</div>
+        </div>`;
+      preview.style.color = "var(--cc-text)";
+
+      // Optionally bind result as widget's customData for immediate preview
+      if (rows.length > 0) {
+        const dataObj = {};
+        columns.forEach((col, ci) => { dataObj[col] = rows.map(r => r[ci]); });
+        propSet(widgetId, "customData", JSON.stringify(dataObj));
+        if (_charts[widgetId]) { try { _charts[widgetId].dispose(); } catch {} delete _charts[widgetId]; }
+        renderPreview(w);
+        syncCode();
+      }
+    })
+    .catch(e => { preview.innerHTML = `<span style="color:var(--cc-danger)">${e}</span>`; });
+}
+
+function openConnectorsPanel(widgetId) {
+  // Simple inline add-connector flow using a prompt dialog
+  const name = prompt("Connector name (e.g. 'Sales DB'):");
+  if (!name) return;
+  const connStr = prompt("Connection string:\nsqlite:///path/to/file.db\nor SQLAlchemy URI:");
+  if (!connStr) return;
+  fetch("/api/connections", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, conn_str: connStr }),
+  })
+    .then(r => r.json())
+    .then(result => {
+      toast(`Connector "${name}" saved`);
+      // Reload properties to refresh the dropdown
+      renderProps();
+    })
+    .catch(e => toast("Failed: " + e));
 }
 
 function removeColor(idx, id) {
