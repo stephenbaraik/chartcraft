@@ -234,7 +234,7 @@ def executive():
         GROUP BY state ORDER BY sales DESC LIMIT 10
     """)
 
-    return cc.Page(
+    return cc.executive_page(
         title="Executive Dashboard",
         subtitle="Sample Superstore · FY2018 · United States retail operations",
         kpis=[
@@ -247,71 +247,63 @@ def executive():
             cc.stat("Profit Margin", f"{margin}%", change=1.2),
             cc.stat("Total Orders", f"{fy18['orders']:,}", change=23.6),
         ],
-        content=[
-            cc.section(
-                "Momentum & Mix",
-                cc.trend_line(
-                    fy18_monthly,
-                    x="month",
-                    y=["revenue", "profit"],
-                    title="Revenue vs Profit  ($)",
-                    col=0,
-                    colspan=8,
-                    height=340,
-                    colors=["#60A5FA", "#FB7185"],
-                ),
-                cc.spotlight_donut(
-                    {r["category"]: r["sales"] for r in cat_mix},
-                    title="Revenue by Category",
-                    col=8,
-                    colspan=4,
-                    height=340,
-                    center_text="Mix",
-                    colors=["#8B5CF6", "#14B8A6", "#F59E0B"],
-                ),
-                subtitle="A cleaner look at the sales engine behind FY2018 performance",
-            ),
-            cc.note(
-                "West leads the business in both volume and contribution, while Furniture still lags the broader margin profile.",
+        hero=[
+            cc.trend_line(
+                fy18_monthly,
+                x="month",
+                y=["revenue", "profit"],
+                title="Revenue vs Profit  ($)",
                 col=0,
-                colspan=12,
+                colspan=8,
+                height=340,
+                colors=["#60A5FA", "#FB7185"],
             ),
-            cc.section(
-                "Regional Performance & Top States",
-                cc.comparison_bars(
-                    region_rev,
-                    x="region",
-                    y=["sales", "profit"],
-                    title="Revenue & Profit by Region  ($)",
-                    col=0,
-                    colspan=5,
-                    height=300,
-                    colors=["#22C55E", "#F59E0B"],
-                ),
-                cc.Gauge(
-                    margin,
-                    title="Profit Margin  (%)",
-                    col=5,
-                    colspan=2,
-                    height=300,
-                    min_val=0,
-                    max_val=30,
-                    zones=[
-                        {"min": 0, "max": 8, "color": "#EF4444"},
-                        {"min": 8, "max": 12, "color": "#F59E0B"},
-                        {"min": 12, "max": 30, "color": "#10B981"},
-                    ],
-                ),
-                cc.ranked_bars(
-                    top_states,
-                    x="state",
-                    y="sales",
-                    title="Top 10 States  ($ Sales)",
-                    col=7,
-                    colspan=5,
-                    height=300,
-                    colors=["#0EA5E9"],
-                ),
+            cc.spotlight_donut(
+                {r["category"]: r["sales"] for r in cat_mix},
+                title="Revenue by Category",
+                col=8,
+                colspan=4,
+                height=340,
+                center_text="Mix",
+                colors=["#8B5CF6", "#14B8A6", "#F59E0B"],
+            ),
+        ],
+        hero_subtitle="A cleaner look at the sales engine behind FY2018 performance",
+        note_text="West leads the business in both volume and contribution, while Furniture still lags the broader margin profile.",
+        performance=[
+            cc.comparison_bars(
+                region_rev,
+                x="region",
+                y=["sales", "profit"],
+                title="Revenue & Profit by Region  ($)",
+                col=0,
+                colspan=5,
+                height=300,
+                colors=["#22C55E", "#F59E0B"],
+            ),
+            cc.Gauge(
+                margin,
+                title="Profit Margin  (%)",
+                col=5,
+                colspan=2,
+                height=300,
+                min_val=0,
+                max_val=30,
+                zones=[
+                    {"min": 0, "max": 8, "color": "#EF4444"},
+                    {"min": 8, "max": 12, "color": "#F59E0B"},
+                    {"min": 12, "max": 30, "color": "#10B981"},
+                ],
+            ),
+            cc.ranked_bars(
+                top_states,
+                x="state",
+                y="sales",
+                title="Top 10 States  ($ Sales)",
+                col=7,
+                colspan=5,
+                height=300,
+                colors=["#0EA5E9"],
             ),
         ],
     )
@@ -381,7 +373,7 @@ def sales():
             FROM orders {w}
         """)[0]
 
-    return cc.Page(
+    return cc.sales_page(
         title="Sales Deep-Dive",
         subtitle="Trends · mix shifts · top movers — tuned for narrative analysis",
         filters=[
@@ -430,13 +422,11 @@ def sales():
                 formatter=lambda v, _f: f"${v:,.0f}",
             ),
         ],
-        content=[
-            cc.section(
-                "Sales Arc",
-                cc.sql_area(
-                    db,
-                    lambda f: (
-                        f"""
+        trend=[
+            cc.sql_area(
+                db,
+                lambda f: (
+                    f"""
                         SELECT
                             strftime('%Y', order_date) || '-' ||
                             CASE WHEN CAST(strftime('%m', order_date) AS INT) < 10
@@ -448,79 +438,72 @@ def sales():
                         FROM orders {_where(f)}
                         GROUP BY month ORDER BY month
                     """
-                    ),
-                    x="month",
-                    y=["sales", "profit"],
-                    title="Monthly Revenue vs Profit  ($)",
-                    col=0,
-                    colspan=8,
-                    height=320,
-                    colors=["#F97316", "#FB7185"],
-                    smooth=True,
-                    gradient=True,
-                    linked_filters=["year"],
                 ),
-                cc.sql_bar(
-                    db,
-                    lambda f: (
-                        f"SELECT segment, ROUND(SUM(sales)) AS sales, ROUND(SUM(profit)) AS profit FROM orders {_where(f)} GROUP BY segment ORDER BY sales DESC"
-                    ),
-                    x="segment",
-                    y=["sales", "profit"],
-                    title="Revenue by Segment  ($)",
-                    col=8,
-                    colspan=4,
-                    height=320,
-                    colors=["#8B5CF6", "#14B8A6"],
-                    grouped=True,
-                    linked_filters=["year"],
-                ),
-                subtitle="Pick a year above to compress the story into a single operating window",
+                x="month",
+                y=["sales", "profit"],
+                title="Monthly Revenue vs Profit  ($)",
+                col=0,
+                colspan=8,
+                height=320,
+                colors=["#F97316", "#FB7185"],
+                smooth=True,
+                gradient=True,
+                linked_filters=["year"],
             ),
-            cc.note(
-                "The orange revenue area intentionally leads the page, while profit stays visible as a second signal rather than fighting for attention.",
+            cc.sql_bar(
+                db,
+                lambda f: (
+                    f"SELECT segment, ROUND(SUM(sales)) AS sales, ROUND(SUM(profit)) AS profit FROM orders {_where(f)} GROUP BY segment ORDER BY sales DESC"
+                ),
+                x="segment",
+                y=["sales", "profit"],
+                title="Revenue by Segment  ($)",
+                col=8,
+                colspan=4,
+                height=320,
+                colors=["#8B5CF6", "#14B8A6"],
+                grouped=True,
+                linked_filters=["year"],
+            ),
+        ],
+        trend_subtitle="Pick a year above to compress the story into a single operating window",
+        note_text="The orange revenue area intentionally leads the page, while profit stays visible as a second signal rather than fighting for attention.",
+        analysis=[
+            cc.comparison_bars(
+                data_fn=_subcat_profit,
+                x="sub_category",
+                y=["sales", "profit"],
+                title="Revenue & Profit by Sub-Category  ($)",
+                col=0,
+                colspan=7,
+                height=340,
+                colors=["#60A5FA", "#22C55E"],
+                linked_filters=["year"],
+            ),
+            cc.Waterfall(
+                data_fn=_yoy,
+                title="Revenue by Year  ($)",
+                x="year",
+                y="sales",
+                col=7,
+                colspan=5,
+                height=340,
+                positive_color="#22C55E",
+                negative_color="#EF4444",
+                linked_filters=["year"],
+            ),
+        ],
+        ranking=[
+            cc.ranked_bars(
+                data_fn=_top_products,
+                x="product_name",
+                y="sales",
+                title="Top 10 Products  ($ Sales)",
                 col=0,
                 colspan=12,
-            ),
-            cc.section(
-                "Category & Sub-Category Analysis",
-                cc.comparison_bars(
-                    data_fn=_subcat_profit,
-                    x="sub_category",
-                    y=["sales", "profit"],
-                    title="Revenue & Profit by Sub-Category  ($)",
-                    col=0,
-                    colspan=7,
-                    height=340,
-                    colors=["#60A5FA", "#22C55E"],
-                    linked_filters=["year"],
-                ),
-                cc.Waterfall(
-                    data_fn=_yoy,
-                    title="Revenue by Year  ($)",
-                    x="year",
-                    y="sales",
-                    col=7,
-                    colspan=5,
-                    height=340,
-                    positive_color="#22C55E",
-                    negative_color="#EF4444",
-                    linked_filters=["year"],
-                ),
-            ),
-            cc.section(
-                "Top Products by Revenue",
-                cc.ranked_bars(
-                    data_fn=_top_products,
-                    x="product_name",
-                    y="sales",
-                    title="Top 10 Products  ($ Sales)",
-                    col=0,
-                    colspan=12,
-                    height=360,
-                    colors=["#6366F1"],
-                    linked_filters=["year"],
-                ),
+                height=360,
+                colors=["#6366F1"],
+                linked_filters=["year"],
             ),
         ],
     )
@@ -588,7 +571,7 @@ def customers():
         rows = _segments(f)
         return rows[0]["segment"] if rows else "-"
 
-    return cc.Page(
+    return cc.customer_page(
         title="Customer Intelligence",
         subtitle="Segment mix · account quality · geographic concentration",
         filters=[
@@ -615,105 +598,98 @@ def customers():
                 "Orders", data_fn=lambda f={}: f"{_customer_summary(f)['orders']:,}"
             ),
         ],
-        content=[
-            cc.section(
-                "Segment Breakdown",
-                cc.spotlight_donut(
-                    data_fn=lambda f={}: {
-                        r["segment"]: r["sales"] for r in _segments(f)
-                    },
-                    title="Revenue by Segment",
-                    col=0,
-                    colspan=3,
-                    height=300,
-                    center_text="Sales",
-                    colors=["#8B5CF6", "#0EA5E9", "#22C55E"],
-                    linked_filters=["segment"],
-                ),
-                cc.comparison_bars(
-                    data_fn=_segments,
-                    x="segment",
-                    y=["sales", "profit"],
-                    title="Sales & Profit by Segment  ($)",
-                    col=3,
-                    colspan=4,
-                    height=300,
-                    colors=["#A855F7", "#14B8A6"],
-                    linked_filters=["segment"],
-                ),
-                cc.ranked_bars(
-                    data_fn=_region_geo,
-                    x="region",
-                    y="sales",
-                    title="Sales by Region  ($)",
-                    col=7,
-                    colspan=5,
-                    height=300,
-                    colors=["#0EA5E9"],
-                    linked_filters=["segment"],
-                ),
-                subtitle="Pick a segment to see the portfolio recompose itself across revenue, regions, and account value",
+        mix=[
+            cc.spotlight_donut(
+                data_fn=lambda f={}: {r["segment"]: r["sales"] for r in _segments(f)},
+                title="Revenue by Segment",
+                col=0,
+                colspan=3,
+                height=300,
+                center_text="Sales",
+                colors=["#8B5CF6", "#0EA5E9", "#22C55E"],
+                linked_filters=["segment"],
             ),
-            cc.section(
-                "Geographic Performance",
-                cc.Heatmap(
-                    data_fn=lambda f={}: {
-                        "x_labels": ["Sales"],
-                        "y_labels": [r["state"] for r in _state_rev(f)],
-                        "matrix": [[r["sales"]] for r in _state_rev(f)],
-                    },
-                    title="Top 20 States by Revenue",
-                    col=0,
-                    colspan=4,
-                    height=280,
-                    color_scale=["#0F172A", "#1D4ED8", "#38BDF8", "#BAE6FD"],
-                    show_labels=True,
-                    linked_filters=["segment"],
-                ),
-                cc.spotlight_donut(
-                    data_fn=lambda f={}: {
-                        r["segment"]: r["customers"] for r in _segments(f)
-                    },
-                    title="Customers by Segment",
-                    col=4,
-                    colspan=4,
-                    height=280,
-                    center_text="Accounts",
-                    colors=["#8B5CF6", "#06B6D4", "#10B981"],
-                    linked_filters=["segment"],
-                ),
-                cc.ranked_bars(
-                    data_fn=_region_geo,
-                    x="region",
-                    y="orders",
-                    title="Orders by Region",
-                    col=8,
-                    colspan=4,
-                    height=280,
-                    colors=["#F59E0B"],
-                    linked_filters=["segment"],
-                ),
+            cc.comparison_bars(
+                data_fn=_segments,
+                x="segment",
+                y=["sales", "profit"],
+                title="Sales & Profit by Segment  ($)",
+                col=3,
+                colspan=4,
+                height=300,
+                colors=["#A855F7", "#14B8A6"],
+                linked_filters=["segment"],
             ),
-            cc.section(
-                "Top Accounts",
-                cc.data_table(
-                    data_fn=_customer_table,
-                    title="Top 50 Customers by Revenue",
-                    col=0,
-                    colspan=12,
-                    height=400,
-                    columns=[
-                        "customer_name",
-                        "segment",
-                        "state",
-                        "orders",
-                        "total_sales",
-                        "total_profit",
-                        "margin_pct",
-                    ],
-                    page_size=10,
-                    linked_filters=["segment"],
-                ),
+            cc.ranked_bars(
+                data_fn=_region_geo,
+                x="region",
+                y="sales",
+                title="Sales by Region  ($)",
+                col=7,
+                colspan=5,
+                height=300,
+                colors=["#0EA5E9"],
+                linked_filters=["segment"],
+            ),
+        ],
+        mix_subtitle="Pick a segment to see the portfolio recompose itself across revenue, regions, and account value",
+        geography=[
+            cc.Heatmap(
+                data_fn=lambda f={}: {
+                    "x_labels": ["Sales"],
+                    "y_labels": [r["state"] for r in _state_rev(f)],
+                    "matrix": [[r["sales"]] for r in _state_rev(f)],
+                },
+                title="Top 20 States by Revenue",
+                col=0,
+                colspan=4,
+                height=280,
+                color_scale=["#0F172A", "#1D4ED8", "#38BDF8", "#BAE6FD"],
+                show_labels=True,
+                linked_filters=["segment"],
+            ),
+            cc.spotlight_donut(
+                data_fn=lambda f={}: {
+                    r["segment"]: r["customers"] for r in _segments(f)
+                },
+                title="Customers by Segment",
+                col=4,
+                colspan=4,
+                height=280,
+                center_text="Accounts",
+                colors=["#8B5CF6", "#06B6D4", "#10B981"],
+                linked_filters=["segment"],
+            ),
+            cc.ranked_bars(
+                data_fn=_region_geo,
+                x="region",
+                y="orders",
+                title="Orders by Region",
+                col=8,
+                colspan=4,
+                height=280,
+                colors=["#F59E0B"],
+                linked_filters=["segment"],
+            ),
+        ],
+        accounts=[
+            cc.data_table(
+                data_fn=_customer_table,
+                title="Top 50 Customers by Revenue",
+                col=0,
+                colspan=12,
+                height=400,
+                columns=[
+                    "customer_name",
+                    "segment",
+                    "state",
+                    "orders",
+                    "total_sales",
+                    "total_profit",
+                    "margin_pct",
+                ],
+                page_size=10,
+                linked_filters=["segment"],
             ),
         ],
     )
@@ -821,7 +797,7 @@ def products():
         rows = _cat_summary(f)
         return rows[0]["category"] if rows else "-"
 
-    return cc.Page(
+    return cc.product_page(
         title="Product Performance",
         subtitle="Category structure · unit momentum · margin pressure from discounting",
         filters=[
@@ -846,99 +822,90 @@ def products():
                 data_fn=lambda f={}: f"{_product_summary(f)['avg_discount']}%",
             ),
         ],
-        content=[
-            cc.section(
-                "Category Overview",
-                cc.comparison_bars(
-                    data_fn=_cat_summary,
-                    x="category",
-                    y=["sales", "profit"],
-                    title="Revenue & Profit by Category  ($)",
-                    col=0,
-                    colspan=4,
-                    height=300,
-                    colors=["#7C3AED", "#22C55E"],
-                    linked_filters=["category"],
-                ),
-                cc.Gauge(
-                    12.5,
-                    title="Avg Profit Margin  (%)",
-                    col=4,
-                    colspan=2,
-                    height=300,
-                    min_val=0,
-                    max_val=40,
-                    zones=[
-                        {"min": 0, "max": 10, "color": "#EF4444"},
-                        {"min": 10, "max": 15, "color": "#F59E0B"},
-                        {"min": 15, "max": 40, "color": "#10B981"},
-                    ],
-                ),
-                cc.ranked_bars(
-                    data_fn=_qty_dist,
-                    x="category",
-                    y="units",
-                    title="Units Sold by Category",
-                    col=6,
-                    colspan=6,
-                    height=300,
-                    colors=["#06B6D4"],
-                    linked_filters=["category"],
-                ),
-                subtitle="This page leans into structure first: what sells, what scales, and what actually keeps margin intact",
-            ),
-            cc.note(
-                "Technology remains the cleanest profit story, while Furniture carries more unit weight than economic quality.",
+        overview=[
+            cc.comparison_bars(
+                data_fn=_cat_summary,
+                x="category",
+                y=["sales", "profit"],
+                title="Revenue & Profit by Category  ($)",
                 col=0,
-                colspan=12,
+                colspan=4,
+                height=300,
+                colors=["#7C3AED", "#22C55E"],
+                linked_filters=["category"],
             ),
-            cc.section(
-                "Profitability & Discount Impact",
-                cc.Treemap(
-                    data_fn=_tree_data,
-                    title="Revenue Treemap  ($ Sales)",
-                    col=0,
-                    colspan=6,
-                    height=360,
-                    drill_down=True,
-                    linked_filters=["category"],
-                ),
-                cc.insight_scatter(
-                    data_fn=_disc_profit,
-                    x="discount",
-                    y="profit",
-                    group="category",
-                    title="Discount vs Profit  ($)",
-                    col=6,
-                    colspan=6,
-                    height=360,
-                    linked_filters=["category"],
-                ),
+            cc.Gauge(
+                12.5,
+                title="Avg Profit Margin  (%)",
+                col=4,
+                colspan=2,
+                height=300,
+                min_val=0,
+                max_val=40,
+                zones=[
+                    {"min": 0, "max": 10, "color": "#EF4444"},
+                    {"min": 10, "max": 15, "color": "#F59E0B"},
+                    {"min": 15, "max": 40, "color": "#10B981"},
+                ],
             ),
-            cc.section(
-                "Sub-Category & Top Products",
-                cc.ranked_bars(
-                    data_fn=_subcat_profit,
-                    x="sub_category",
-                    y="profit",
-                    title="Profit by Sub-Category  ($)",
-                    col=0,
-                    colspan=7,
-                    height=340,
-                    colors=["#22C55E"],
-                    linked_filters=["category"],
-                ),
-                cc.ranked_bars(
-                    data_fn=_top_profit,
-                    x="product_name",
-                    y="profit",
-                    title="Top 10 Products by Profit  ($)",
-                    col=7,
-                    colspan=5,
-                    height=340,
-                    colors=["#0EA5E9"],
-                    linked_filters=["category"],
-                ),
+            cc.ranked_bars(
+                data_fn=_qty_dist,
+                x="category",
+                y="units",
+                title="Units Sold by Category",
+                col=6,
+                colspan=6,
+                height=300,
+                colors=["#06B6D4"],
+                linked_filters=["category"],
+            ),
+        ],
+        overview_subtitle="This page leans into structure first: what sells, what scales, and what actually keeps margin intact",
+        note_text="Technology remains the cleanest profit story, while Furniture carries more unit weight than economic quality.",
+        profitability=[
+            cc.Treemap(
+                data_fn=_tree_data,
+                title="Revenue Treemap  ($ Sales)",
+                col=0,
+                colspan=6,
+                height=360,
+                drill_down=True,
+                linked_filters=["category"],
+            ),
+            cc.insight_scatter(
+                data_fn=_disc_profit,
+                x="discount",
+                y="profit",
+                group="category",
+                title="Discount vs Profit  ($)",
+                col=6,
+                colspan=6,
+                height=360,
+                linked_filters=["category"],
+            ),
+        ],
+        leaders=[
+            cc.ranked_bars(
+                data_fn=_subcat_profit,
+                x="sub_category",
+                y="profit",
+                title="Profit by Sub-Category  ($)",
+                col=0,
+                colspan=7,
+                height=340,
+                colors=["#22C55E"],
+                linked_filters=["category"],
+            ),
+            cc.ranked_bars(
+                data_fn=_top_profit,
+                x="product_name",
+                y="profit",
+                title="Top 10 Products by Profit  ($)",
+                col=7,
+                colspan=5,
+                height=340,
+                colors=["#0EA5E9"],
+                linked_filters=["category"],
             ),
         ],
     )

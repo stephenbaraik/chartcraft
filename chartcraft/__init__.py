@@ -70,6 +70,10 @@ from chartcraft.core.colors import (
 from chartcraft.connectors import connect_sql, connect_csv, connect_api
 from chartcraft.presets import (
     Page,
+    executive_page,
+    sales_page,
+    customer_page,
+    product_page,
     section,
     note,
     stat,
@@ -174,6 +178,10 @@ __all__ = [
     "connect_csv",
     "connect_api",
     "Page",
+    "executive_page",
+    "sales_page",
+    "customer_page",
+    "product_page",
     "section",
     "note",
     "stat",

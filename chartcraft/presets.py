@@ -55,6 +55,134 @@ def Page(
     )
 
 
+def executive_page(
+    title: str,
+    subtitle: str = "",
+    *,
+    kpis: Optional[list] = None,
+    hero: Optional[Iterable[Any]] = None,
+    hero_subtitle: str = "",
+    performance: Optional[Iterable[Any]] = None,
+    note_text: str = "",
+    content: Optional[Iterable[Any]] = None,
+    filters: Optional[list] = None,
+    icon: str = "",
+) -> Dashboard:
+    return Page(
+        title=title,
+        subtitle=subtitle,
+        kpis=kpis,
+        filters=filters,
+        icon=icon,
+        content=[
+            section("Momentum & Mix", *(hero or []), subtitle=hero_subtitle)
+            if hero
+            else None,
+            note(note_text) if note_text else None,
+            section("Regional Performance & Top States", *(performance or []))
+            if performance
+            else None,
+            *(content or []),
+        ],
+    )
+
+
+def sales_page(
+    title: str,
+    subtitle: str = "",
+    *,
+    filters: Optional[list] = None,
+    kpis: Optional[list] = None,
+    trend: Optional[Iterable[Any]] = None,
+    trend_subtitle: str = "",
+    analysis: Optional[Iterable[Any]] = None,
+    ranking: Optional[Iterable[Any]] = None,
+    note_text: str = "",
+    icon: str = "",
+) -> Dashboard:
+    return Page(
+        title=title,
+        subtitle=subtitle,
+        filters=filters,
+        kpis=kpis,
+        icon=icon,
+        content=[
+            section("Sales Arc", *(trend or []), subtitle=trend_subtitle)
+            if trend
+            else None,
+            note(note_text) if note_text else None,
+            section("Category & Sub-Category Analysis", *(analysis or []))
+            if analysis
+            else None,
+            section("Top Products by Revenue", *(ranking or [])) if ranking else None,
+        ],
+    )
+
+
+def customer_page(
+    title: str,
+    subtitle: str = "",
+    *,
+    filters: Optional[list] = None,
+    kpis: Optional[list] = None,
+    mix: Optional[Iterable[Any]] = None,
+    mix_subtitle: str = "",
+    geography: Optional[Iterable[Any]] = None,
+    accounts: Optional[Iterable[Any]] = None,
+    icon: str = "",
+) -> Dashboard:
+    return Page(
+        title=title,
+        subtitle=subtitle,
+        filters=filters,
+        kpis=kpis,
+        icon=icon,
+        content=[
+            section("Segment Breakdown", *(mix or []), subtitle=mix_subtitle)
+            if mix
+            else None,
+            section("Geographic Performance", *(geography or []))
+            if geography
+            else None,
+            section("Top Accounts", *(accounts or [])) if accounts else None,
+        ],
+    )
+
+
+def product_page(
+    title: str,
+    subtitle: str = "",
+    *,
+    filters: Optional[list] = None,
+    kpis: Optional[list] = None,
+    overview: Optional[Iterable[Any]] = None,
+    overview_subtitle: str = "",
+    note_text: str = "",
+    profitability: Optional[Iterable[Any]] = None,
+    leaders: Optional[Iterable[Any]] = None,
+    icon: str = "",
+) -> Dashboard:
+    return Page(
+        title=title,
+        subtitle=subtitle,
+        filters=filters,
+        kpis=kpis,
+        icon=icon,
+        content=[
+            section("Category Overview", *(overview or []), subtitle=overview_subtitle)
+            if overview
+            else None,
+            note(note_text) if note_text else None,
+            section("Profitability & Discount Impact", *(profitability or []))
+            if profitability
+            else None,
+            section("Sub-Category & Top Products", *(leaders or []))
+            if leaders
+            else None,
+        ],
+    )
+
+
 def section(
     title: str,
     *content: Any,
