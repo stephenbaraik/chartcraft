@@ -62,6 +62,8 @@ class CCHandler(BaseHTTPRequestHandler):
             handler()
         elif path.startswith("/static/"):
             self._serve_static(path[len("/static/"):])
+        elif path.startswith("/builder/components/"):
+            self._serve_builder_component(path[len("/builder/components/"):])
         else:
             self._send_404()
 
@@ -243,6 +245,24 @@ class CCHandler(BaseHTTPRequestHandler):
             ".png": "image/png",
             ".svg": "image/svg+xml",
             ".ico": "image/x-icon",
+        }.get(ext, "application/octet-stream")
+        data = full.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", mime)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _serve_builder_component(self, rel_path: str):
+        """Serve JS/CSS files from the builder/components/ directory."""
+        full = BUILDER_DIR / "components" / rel_path
+        if not full.exists():
+            self._send_404()
+            return
+        ext = full.suffix.lower()
+        mime = {
+            ".js":  "application/javascript",
+            ".css": "text/css",
         }.get(ext, "application/octet-stream")
         data = full.read_bytes()
         self.send_response(200)
