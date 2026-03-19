@@ -1,124 +1,75 @@
-# ◆ ChartCraft Documentation
+# ChartCraft Documentation
 
-**Python-powered dashboards that rival Power BI & Tableau.**
+ChartCraft supports three authoring layers:
 
-Build stunning, interactive, real-time dashboards with pure Python — or design them visually with the drag-and-drop Dashboard Builder. No HTML, no JavaScript, no frontend skills required.
+- core dashboard classes like `cc.Dashboard`, `cc.Line`, and `cc.Bar`
+- composable helpers like `cc.Page`, `cc.section`, `cc.stat`, and `cc.ranked_bars`
+- opinionated page builders like `cc.executive_page`, `cc.sales_page`, `cc.customer_page`, and `cc.product_page`
 
----
+Use this documentation to choose the level that matches how quickly you want to move.
 
-## What is ChartCraft?
+## Start Here
 
-ChartCraft is a Python library that turns your data into beautiful, interactive dashboards served directly in the browser. Write Python code, or use the visual builder — they stay in perfect sync.
+| Guide | What it covers |
+|---|---|
+| [Getting Started](getting-started.md) | Install ChartCraft, run a first app, and learn the recommended modern API |
+| [Presets and Page Builders](presets-and-page-builders.md) | `Page`, `section`, chart presets, SQL helpers, and opinionated page builders |
+| [Chart Types](charts.md) | Raw chart classes, options, and expected data shapes |
+| [Data Sources](data-sources.md) | SQL, CSV, API connectors, plus SQL-backed component helpers |
+| [Filters & Interactivity](filters-and-interactivity.md) | Filter controls, linked filters, and dynamic dashboard behavior |
+| [Export & Deployment](export-and-deployment.md) | HTML export, combined multi-page PDF export, notebooks, Docker |
+| [API Reference](api-reference.md) | Full public API, including presets and SQL helper constructors |
 
-```python
-import chartcraft as cc
+## Recommended Workflow
 
-app = cc.App("Sales Dashboard", theme="midnight")
+1. Start with `cc.Page(...)` if you want a flexible but clean dashboard structure.
+2. Use `cc.executive_page(...)`, `cc.sales_page(...)`, `cc.customer_page(...)`, or `cc.product_page(...)` when your dashboard matches a common analytics story.
+3. Use `cc.sql_kpi(...)`, `cc.sql_line(...)`, `cc.sql_area(...)`, `cc.sql_bar(...)`, and related helpers when your app is SQL-first.
+4. Drop down to raw chart classes when you need exact control over layout or behavior.
 
-@app.page("/")
-def home():
-    return cc.Dashboard(
-        title="Sales Overview",
-        kpis=[cc.KPI("Revenue", "$1.2M", change=12.5)],
-        charts=[cc.Bar({"Q1": 100, "Q2": 200, "Q3": 150, "Q4": 300}, title="Quarterly")],
-    )
-
-app.run()  # → http://localhost:8050
-```
-
----
-
-## Documentation
-
-| Guide | What you'll learn |
-|-------|------------------|
-| [Getting Started](getting-started.md) | Install, run your first dashboard, key concepts |
-| [Chart Types](charts.md) | All 18+ chart types with examples and options |
-| [Themes & Colors](themes-and-colors.md) | 11 themes, 16 palettes, color picker, custom branding |
-| [Data Sources](data-sources.md) | Connect to SQL, CSV files, REST APIs |
-| [Filters & Interactivity](filters-and-interactivity.md) | Dropdowns, sliders, cross-filtering, drill-down |
-| [Real-Time Data](realtime.md) | SSE streaming, auto-refresh, live KPIs |
-| [Visual Builder](builder.md) | Drag-and-drop UI, bidirectional code sync |
-| [Export & Deployment](export-and-deployment.md) | HTML, PDF, Jupyter, Docker, multi-page sites |
-| [Authentication](authentication.md) | Password protection, Bearer tokens |
-| [API Reference](api-reference.md) | Complete Python API — every class, method, parameter |
-
----
-
-## Key Features
-
-- **18 chart types** — Bar, Line, Area, Pie, Donut, Scatter, Heatmap, Radar, Gauge, Candlestick, and more
-- **Zero required dependencies** — stdlib only; optional extras for SQL and PDF
-- **Real-time streaming** — Server-Sent Events push data updates to the browser every N seconds
-- **Visual builder** — Figma-like drag-and-drop canvas that generates Python code
-- **Bidirectional sync** — edit Python code and the builder canvas stays in sync
-- **11 built-in themes** — dark, light, and specialized; fully customizable
-- **16 color palettes** + professional HSV color picker with harmonies
-- **SQL, CSV, REST API** connectors with zero required dependencies for SQLite and CSV
-- **Interactive filters** — cascading dropdowns, sliders, date ranges, cross-filtering
-- **Export anywhere** — standalone HTML, Jupyter notebooks, Docker, PDF
-
----
-
-## Installation
-
-```bash
-pip install chartcraft
-```
-
-**With database support:**
-```bash
-pip install "chartcraft[sql]"       # SQLAlchemy for PostgreSQL/MySQL/SQL Server
-pip install "chartcraft[pg]"        # PostgreSQL
-pip install "chartcraft[mysql]"     # MySQL
-pip install "chartcraft[pandas]"    # DataFrame support
-pip install "chartcraft[pdf]"       # PDF export via Playwright
-pip install "chartcraft[full]"      # Everything
-```
-
----
-
-## Quick Example
+## Minimal Example
 
 ```python
 import chartcraft as cc
 
-# 1. Create the app
-app = cc.App("Analytics", theme="midnight")
+app = cc.App("Revenue Review", theme="frost")
 
-# 2. Connect to data
-db = cc.connect_sql("sqlite:///data.db")
-
-# 3. Define a page
 @app.page("/")
 def overview():
-    data = db.query_dict("SELECT month, revenue FROM sales")
-    return cc.Dashboard(
-        title="Sales Overview",
+    return cc.Page(
+        title="Revenue Review",
+        subtitle="A compact preset-driven dashboard",
         kpis=[
-            cc.KPI("Revenue", "$4.2M", change=12.5),
-            cc.KPI("Users",   "45K",   change=-3.2),
+            cc.stat("Revenue", "$1.24M", change=8.4),
+            cc.stat("Margin", "21.7%", change=1.3),
         ],
-        filters=[
-            cc.Filter("region", label="Region", type="select",
-                      options=["All", "North", "South"]),
-        ],
-        charts=[
-            cc.Line(data, x="month", y="revenue",
-                    title="Monthly Revenue", col=0, colspan=8),
-            cc.Donut({"Enterprise": 45, "Pro": 30, "Free": 25},
-                     title="Plan Split", col=8, colspan=4),
+        content=[
+            cc.section(
+                "Momentum",
+                cc.trend_line(
+                    {
+                        "month": ["Jan", "Feb", "Mar", "Apr"],
+                        "revenue": [180, 205, 221, 247],
+                        "profit": [28, 32, 34, 41],
+                    },
+                    x="month",
+                    y=["revenue", "profit"],
+                    title="Revenue vs Profit",
+                    col=0,
+                    colspan=8,
+                    height=320,
+                ),
+                cc.spotlight_donut(
+                    {"Enterprise": 52, "Mid-Market": 31, "SMB": 17},
+                    title="Revenue Mix",
+                    center_text="Q2",
+                    col=8,
+                    colspan=4,
+                    height=320,
+                ),
+            )
         ],
     )
 
-# 4. Run
-app.run()  # Opens browser at http://localhost:8050
+app.run()
 ```
-
----
-
-## Minimum Requirements
-
-- Python 3.11+
-- Any modern browser (Chrome, Firefox, Safari, Edge)
-- No database required (SQLite is built into Python)

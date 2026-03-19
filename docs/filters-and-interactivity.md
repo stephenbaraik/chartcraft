@@ -85,7 +85,7 @@ def get_sales_data(region, period):
     return db.query_dict(sql, params)
 ```
 
-**How it works:** When the user changes a filter, the browser sends the new filter state to the server, which calls `data_fn(filters)` with the current filter values. The result is pushed to the browser via SSE.
+**How it works:** When the user changes a filter, the browser sends the new filter state to the server, which calls `data_fn(filters)`. The result is pushed to the browser via SSE.
 
 ---
 
@@ -157,8 +157,7 @@ cc.Line(
 
 When cross-filtering is active:
 - The clicked element is highlighted; others are dimmed to 20% opacity
-- An "×" chip appears at the top of the dashboard showing active filters
-- Clearing the chip removes the filter
+- An "×" chip appears at the top of the dashboard showing active filters — click it to clear
 
 ---
 
@@ -170,10 +169,7 @@ Filter state is encoded in the URL so users can bookmark and share filtered view
 http://localhost:8050/?filters=eyJyZWdpb24iOiJOb3J0aCIsInBlcmlvZCI6IlExIn0=
 ```
 
-The `filters` query parameter is Base64-encoded JSON. This means:
-- Browser Back/Forward works to navigate filter history
-- Users can bookmark specific filtered views
-- Sharing a URL shares the exact filtered state
+The `filters` query parameter is Base64-encoded JSON. Browser Back/Forward navigate filter history, users can bookmark filtered views, and sharing a URL shares the exact state.
 
 Filter state is automatically restored when the page loads with a `filters` parameter.
 
@@ -181,12 +177,7 @@ Filter state is automatically restored when the page loads with a `filters` para
 
 ## Auto-Apply Toggle
 
-By default, filters apply immediately when changed. In the viewer, there is an **Auto-Apply** toggle:
-
-- **On** (default): Each filter change triggers an immediate data refresh
-- **Off**: Changes are queued and applied all at once when the user clicks **Apply**
-
-This is useful for dashboards with slow queries where you don't want N queries for N filter changes.
+By default, filters apply immediately. In the viewer, the **Auto-Apply** toggle lets you queue changes and apply them all at once with **Apply** — useful for dashboards with slow queries.
 
 ---
 

@@ -6,7 +6,7 @@ Complete reference for all ChartCraft Python classes, methods, and parameters.
 
 ## `cc.App` / `cc.AppServer`
 
-The top-level object that holds pages, theme, and server configuration.
+The top-level object holding pages, theme, and server configuration.
 
 ### Constructor
 
@@ -38,7 +38,7 @@ def sales():
     return cc.Dashboard(...)
 ```
 
-The decorated function must return a `cc.Dashboard`. It is called on every browser request to that path.
+The decorated function must return a `cc.Dashboard` and is called on every browser request to that path.
 
 ### `app.run()`
 
@@ -117,6 +117,90 @@ cc.quick_dashboard(
     kpis: list = None,
     save_path: str = None,
 ) -> str
+```
+
+---
+
+## Presets and Page Builders
+
+### `cc.Page(...)`
+
+Higher-level page constructor that returns a `cc.Dashboard`.
+
+```python
+cc.Page(
+    title: str = "",
+    subtitle: str = "",
+    kpis: list[KPI] = [],
+    filters: list[Filter] = [],
+    content: list = [],
+    charts: list = [],
+    cols: int = 12,
+    refresh: int = None,
+    background: str = "",
+    icon: str = "",
+)
+```
+
+### Layout helpers
+
+```python
+cc.section(title, *content, subtitle="", col=0, colspan=12)
+cc.note(content, col=0, colspan=12, font_size="0.95rem", align="left")
+cc.stat(title, value=None, **kwargs)
+```
+
+### Chart-style helpers
+
+```python
+cc.trend_line(*args, colors=None, show_dots=False, smooth=True, **kwargs)
+cc.trend_area(*args, colors=None, smooth=True, gradient=True, **kwargs)
+cc.comparison_bars(*args, colors=None, grouped=True, show_values=False, **kwargs)
+cc.ranked_bars(*args, colors=None, horizontal=True, show_values=True, **kwargs)
+cc.spotlight_donut(*args, colors=None, inner_radius="64%", center_text="", **kwargs)
+cc.insight_scatter(*args, min_radius=8, max_radius=24, **kwargs)
+cc.data_table(*args, page_size=8, sortable=True, searchable=True, **kwargs)
+```
+
+### Opinionated page builders
+
+```python
+cc.executive_page(title, subtitle="", kpis=None, hero=None, hero_subtitle="", performance=None, note_text="", content=None, filters=None, icon="")
+cc.sales_page(title, subtitle="", filters=None, kpis=None, trend=None, trend_subtitle="", analysis=None, ranking=None, note_text="", icon="")
+cc.customer_page(title, subtitle="", filters=None, kpis=None, mix=None, mix_subtitle="", geography=None, accounts=None, icon="")
+cc.product_page(title, subtitle="", filters=None, kpis=None, overview=None, overview_subtitle="", note_text="", profitability=None, leaders=None, icon="")
+```
+
+---
+
+## SQL Helpers
+
+```python
+cc.sql_kpi(title, connector, sql, params=None, field=None, formatter=None, **kwargs)
+cc.sql_line(connector, sql, params=None, **kwargs)
+cc.sql_area(connector, sql, params=None, **kwargs)
+cc.sql_bar(connector, sql, params=None, **kwargs)
+cc.sql_donut(connector, sql, params=None, **kwargs)
+cc.sql_scatter(connector, sql, params=None, **kwargs)
+cc.sql_table(connector, sql, params=None, **kwargs)
+```
+
+`sql` may be:
+
+- a SQL string
+- a callable that receives the active filter state and returns a SQL string
+- a callable that returns `(sql, params)`
+
+At runtime, core classes also expose:
+
+```python
+cc.KPI.from_sql(...)
+cc.Line.from_sql(...)
+cc.Area.from_sql(...)
+cc.Bar.from_sql(...)
+cc.Donut.from_sql(...)
+cc.Scatter.from_sql(...)
+cc.Table.from_sql(...)
 ```
 
 ---
@@ -547,7 +631,7 @@ scale.generate(n: int) -> list[str]  # n evenly-spaced colors
 
 ## HTTP API Endpoints
 
-These are served by the running ChartCraft server and used by the browser automatically. Useful for programmatic access.
+These serve the running ChartCraft server automatically. Useful for programmatic access.
 
 | Method | Path | Description |
 |--------|------|-------------|

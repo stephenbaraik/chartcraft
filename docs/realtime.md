@@ -9,8 +9,8 @@ ChartCraft uses **Server-Sent Events (SSE)** to push data updates from the serve
 1. Browser loads the dashboard and opens a persistent SSE connection to `/api/events`
 2. For every refreshable component, the server starts a background thread
 3. Every N seconds, the thread calls the component's `data_fn()`, serializes the result, and broadcasts it via SSE
-4. The browser receives the event and smoothly animates the chart to the new data
-5. If the browser disconnects, SSE auto-reconnects within 3 seconds
+4. The browser receives the event and animates the chart to the new data
+5. On disconnect, SSE auto-reconnects within 3 seconds
 
 Each chart and KPI refreshes **independently** on its own interval.
 
@@ -31,7 +31,7 @@ cc.Line(
 )
 ```
 
-`data_fn` is a zero-argument callable. It is called in a background thread, so it can be slow without blocking the web server.
+`data_fn` is called in a background thread — slow queries won't block the web server.
 
 ---
 

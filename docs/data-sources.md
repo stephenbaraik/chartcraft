@@ -1,6 +1,6 @@
 # Data Sources
 
-ChartCraft connects to SQL databases, CSV files, and REST APIs. SQLite and CSV work with zero additional dependencies. Other databases require optional extras.
+ChartCraft connects to SQL databases, CSV files, and REST APIs. SQLite and CSV need no extra dependencies. Other databases require optional extras.
 
 ---
 
@@ -12,7 +12,7 @@ ChartCraft connects to SQL databases, CSV files, and REST APIs. SQLite and CSV w
 db = cc.connect_sql("sqlite:///analytics.db")
 ```
 
-SQLite files are created automatically if they don't exist.
+SQLite files are created automatically.
 
 ### PostgreSQL
 
@@ -104,12 +104,62 @@ cc.Line(
 )
 ```
 
+### SQL-first helper API
+
+If your app is mostly query-driven, use the SQL helpers instead of wrapping everything in `data_fn` yourself.
+
+```python
+db = cc.connect_sql("sqlite:///sales.db")
+
+revenue = cc.sql_kpi(
+    "Revenue",
+    db,
+    "SELECT ROUND(SUM(revenue)) AS revenue FROM orders",
+    field="revenue",
+    formatter=lambda v, _f: f"${v:,.0f}",
+)
+
+trend = cc.sql_area(
+    db,
+    "SELECT month, revenue, profit FROM monthly_sales ORDER BY month",
+    x="month",
+    y=["revenue", "profit"],
+    title="Revenue vs Profit",
+)
+
+leaders = cc.sql_table(
+    db,
+    "SELECT customer_name, region, revenue FROM top_customers ORDER BY revenue DESC LIMIT 10",
+    title="Top Customers",
+    columns=["customer_name", "region", "revenue"],
+)
+```
+
+Available helpers:
+
+- `cc.sql_kpi(...)`
+- `cc.sql_line(...)`
+- `cc.sql_area(...)`
+- `cc.sql_bar(...)`
+- `cc.sql_donut(...)`
+- `cc.sql_scatter(...)`
+- `cc.sql_table(...)`
+
+Core classes also support `from_sql(...)` at runtime:
+
+```python
+cc.KPI.from_sql(...)
+cc.Line.from_sql(...)
+cc.Bar.from_sql(...)
+cc.Table.from_sql(...)
+```
+
 ---
 
 ## CSV Files
 
 ```python
-# Single CSV file
+# Single file
 csv = cc.connect_csv("sales.csv")
 
 # Directory — loads all .csv and .tsv files
@@ -125,7 +175,6 @@ csv.tables()
 
 # Query a table — returns list of dicts
 rows = csv.query("sales")
-# → [{"month": "Jan", "revenue": "100000"}, ...]
 
 # Query as column dict (better for charting)
 cols = csv.query_as_columns("sales")
@@ -296,7 +345,7 @@ In the visual builder at `/builder`, each chart has a **Data** tab with:
 - **Schema browser** — browse tables and columns from the connected DB
 - **Column mapper** — point x/y axes to query columns
 
-Registered connectors are saved to `chartcraft/builder/connectors.json` and persist between sessions.
+Registered connectors persist between sessions in `chartcraft/builder/connectors.json`.
 
 To register a connector programmatically (available in the builder):
 
