@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{TITLE}}</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+{{THEME_CSS}}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--cc-font-body);
+  background: var(--cc-bg);
+  color: var(--cc-text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Nav ── */
+#cc-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 20px;
+  background: var(--cc-bg-card);
+  border-bottom: 1px solid var(--cc-border);
+  height: 52px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+#cc-nav .cc-brand {
+  font-family: var(--cc-font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--cc-accent);
+  margin-right: 16px;
+  text-decoration: none;
+}
+#cc-nav a.cc-nav-link {
+  padding: 6px 14px;
+  border-radius: var(--cc-radius-sm);
+  text-decoration: none;
+  color: var(--cc-text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+}
+#cc-nav a.cc-nav-link:hover { background: var(--cc-bg-elevated); color: var(--cc-text); }
+#cc-nav a.cc-nav-link.active { background: var(--cc-accent); color: #fff; }
+#cc-nav .cc-nav-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+#cc-nav .cc-theme-btn {
+  padding: 5px 12px;
+  border-radius: var(--cc-radius-sm);
+  border: 1px solid var(--cc-border);
+  background: var(--cc-bg-elevated);
+  color: var(--cc-text-secondary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+#cc-nav .cc-theme-btn:hover { border-color: var(--cc-accent); color: var(--cc-text); }
+#cc-nav .cc-builder-link {
+  padding: 5px 12px;
+  border-radius: var(--cc-radius-sm);
+  border: 1px solid var(--cc-accent);
+  background: transparent;
+  color: var(--cc-accent);
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+#cc-nav .cc-builder-link:hover { background: var(--cc-accent); color: #fff; }
+
+/* ── Theme picker dropdown ── */
+#cc-theme-picker {
+  position: absolute;
+  top: 56px;
+  right: 120px;
+  background: var(--cc-bg-card);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius);
+  padding: 6px;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 200;
+  box-shadow: 0 8px 24px var(--cc-shadow);
+  min-width: 160px;
+}
+#cc-theme-picker.open { display: flex; }
+#cc-theme-picker button {
+  padding: 7px 12px;
+  border-radius: var(--cc-radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--cc-text);
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+#cc-theme-picker button:hover { background: var(--cc-bg-elevated); }
+#cc-theme-picker button.active { color: var(--cc-accent); font-weight: 600; }
+
+/* ── Filter bar ── */
+#cc-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  padding: 14px 20px;
+  background: var(--cc-bg-card);
+  border-bottom: 1px solid var(--cc-border);
+}
+#cc-filters:empty { display: none; }
+.cc-filter-group { display: flex; flex-direction: column; gap: 4px; }
+.cc-filter-group label { font-size: 0.75rem; color: var(--cc-text-muted); font-weight: 500; }
+.cc-filter-group select,
+.cc-filter-group input[type="text"],
+.cc-filter-group input[type="date"],
+.cc-filter-group input[type="search"] {
+  padding: 6px 10px;
+  border-radius: var(--cc-radius-sm);
+  border: 1px solid var(--cc-border);
+  background: var(--cc-bg-elevated);
+  color: var(--cc-text);
+  font-size: 0.85rem;
+  min-width: 140px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.cc-filter-group select:focus,
+.cc-filter-group input:focus { border-color: var(--cc-accent); }
+.cc-filter-group input[type="range"] { width: 160px; accent-color: var(--cc-accent); }
+.cc-filter-apply {
+  padding: 6px 16px;
+  border-radius: var(--cc-radius-sm);
+  border: none;
+  background: var(--cc-accent);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  height: 32px;
+  align-self: flex-end;
+  transition: opacity 0.15s;
+}
+.cc-filter-apply:hover { opacity: 0.85; }
+.cc-filter-reset {
+  padding: 6px 12px;
+  border-radius: var(--cc-radius-sm);
+  border: 1px solid var(--cc-border);
+  background: transparent;
+  color: var(--cc-text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  height: 32px;
+  align-self: flex-end;
+  transition: color 0.15s;
+}
+.cc-filter-reset:hover { color: var(--cc-text); }
+
+/* ── Dashboard page ── */
+#cc-page {
+  flex: 1;
+  padding: 20px;
+}
+.cc-page-header { margin-bottom: 20px; }
+.cc-page-header h1 {
+  font-family: var(--cc-font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--cc-text);
+}
+.cc-page-header p {
+  color: var(--cc-text-muted);
+  font-size: 0.9rem;
+  margin-top: 4px;
+}
+
+/* ── KPI row ── */
+.cc-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.cc-kpi-card {
+  background: var(--cc-bg-card);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius);
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+.cc-kpi-card:hover { box-shadow: 0 4px 20px var(--cc-shadow); }
+.cc-kpi-card::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--cc-accent);
+  border-radius: 2px 0 0 2px;
+}
+.cc-kpi-title { font-size: 0.8rem; color: var(--cc-text-muted); font-weight: 500; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+.cc-kpi-value { font-family: var(--cc-font-mono); font-size: 1.8rem; font-weight: 700; color: var(--cc-text); line-height: 1; }
+.cc-kpi-change { font-size: 0.8rem; margin-top: 6px; font-weight: 600; }
+.cc-kpi-change.up { color: var(--cc-success); }
+.cc-kpi-change.down { color: var(--cc-danger); }
+.cc-kpi-change.neutral { color: var(--cc-text-muted); }
+.cc-kpi-sparkline { margin-top: 10px; }
+
+/* ── Grid ── */
+.cc-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 16px;
+}
+.cc-chart-card {
+  background: var(--cc-bg-card);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius);
+  padding: 16px;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+  position: relative;
+}
+.cc-chart-card:hover { box-shadow: 0 4px 20px var(--cc-shadow); }
+.cc-chart-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.cc-chart-title { font-weight: 600; font-size: 0.95rem; color: var(--cc-text); }
+.cc-chart-subtitle { font-size: 0.78rem; color: var(--cc-text-muted); margin-top: 2px; }
+.cc-chart-actions { display: flex; gap: 6px; opacity: 0; transition: opacity 0.2s; }
+.cc-chart-card:hover .cc-chart-actions { opacity: 1; }
+.cc-chart-action-btn {
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--cc-border);
+  background: var(--cc-bg-elevated);
+  color: var(--cc-text-muted);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.cc-chart-canvas { width: 100%; }
+.cc-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cc-text-muted);
+  font-size: 0.85rem;
+  gap: 8px;
+}
+.cc-spinner {
+  width: 16px; height: 16px;
+  border: 2px solid var(--cc-border);
+  border-top-color: var(--cc-accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.cc-error-state {
+  color: var(--cc-danger);
+  font-size: 0.82rem;
+  padding: 8px;
+  background: rgba(239,68,68,0.08);
+  border-radius: var(--cc-radius-sm);
+}
+
+/* ── Table ── */
+.cc-table-wrap { overflow-x: auto; }
+.cc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.cc-table th {
+  padding: 9px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--cc-text-muted);
+  border-bottom: 1px solid var(--cc-border);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.cc-table th:hover { color: var(--cc-text); }
+.cc-table th .sort-icon { margin-left: 4px; opacity: 0.5; }
+.cc-table th.sorted .sort-icon { opacity: 1; color: var(--cc-accent); }
+.cc-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cc-grid);
+  color: var(--cc-text);
+}
+.cc-table tr:hover td { background: var(--cc-bg-elevated); }
+.cc-table.striped tr:nth-child(even) td { background: var(--cc-glass); }
+.cc-table-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 10px;
+}
+.cc-table-search {
+  padding: 6px 10px;
+  border-radius: var(--cc-radius-sm);
+  border: 1px solid var(--cc-border);
+  background: var(--cc-bg-elevated);
+  color: var(--cc-text);
+  font-size: 0.83rem;
+  outline: none;
+  min-width: 200px;
+}
+.cc-table-search:focus { border-color: var(--cc-accent); }
+.cc-pagination {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 0.82rem;
+  color: var(--cc-text-muted);
+}
+.cc-page-btn {
+  padding: 4px 9px;
+  border-radius: 4px;
+  border: 1px solid var(--cc-border);
+  background: var(--cc-bg-elevated);
+  color: var(--cc-text);
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.cc-page-btn:hover { border-color: var(--cc-accent); }
+.cc-page-btn.active { background: var(--cc-accent); border-color: var(--cc-accent); color: #fff; }
+.cc-page-btn:disabled { opacity: 0.35; cursor: default; }
+
+/* ── Layout widgets ── */
+.cc-divider { border: none; border-top: 1px solid var(--cc-border); margin: 4px 0; }
+.cc-text-block { color: var(--cc-text-secondary); line-height: 1.6; }
+.cc-section-header { padding: 4px 0 12px; }
+.cc-section-header h2 { font-size: 1.1rem; font-weight: 700; color: var(--cc-text); }
+.cc-section-header p { font-size: 0.85rem; color: var(--cc-text-muted); margin-top: 3px; }
+
+/* ── SSE indicator ── */
+#cc-live-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--cc-text-muted);
+  transition: background 0.3s;
+}
+#cc-live-dot.connected { background: var(--cc-success); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .cc-grid { grid-template-columns: 1fr !important; }
+  .cc-grid > * { grid-column: 1 / -1 !important; }
+  #cc-nav { overflow-x: auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav id="cc-nav">
+  <a class="cc-brand" href="/">◆ ChartCraft</a>
+  <div id="cc-nav-links"></div>
+  <div class="cc-nav-right">
+    <div id="cc-live-dot" title="Live data connection"></div>
+    <button class="cc-theme-btn" id="cc-theme-toggle" title="Switch theme">◑ Theme</button>
+    <a class="cc-builder-link" href="/builder">⊞ Builder</a>
+  </div>
+</nav>
+<div id="cc-theme-picker"></div>
+
+<!-- Filters -->
+<div id="cc-filters"></div>
+
+<!-- Page content -->
+<main id="cc-page"></main>
+
+<script>
+// ── Injected data ─────────────────────────────────────────────────────────
+const _SPEC        = {{SPEC}};
+const _NAV         = {{NAV}};
+const _THEME_NAME  = "{{THEME_NAME}}";
+const _THEME_LIST  = {{THEME_LIST}};
+const _ECHARTS_TH  = {{ECHARTS_THEME}};
+const _STATIC_MODE = false; // {{STATIC_MODE}}
+
+// ── State ─────────────────────────────────────────────────────────────────
+let _filterState = {};
+let _instances   = {};   // id → echarts instance
+let _tableState  = {};   // id → { page, sort, search }
+
+// ── ECharts theme registration ─────────────────────────────────────────────
+echarts.registerTheme("cc", _ECHARTS_TH);
+
+// ── Nav ───────────────────────────────────────────────────────────────────
+function renderNav() {
+  const container = document.getElementById("cc-nav-links");
+  container.innerHTML = _NAV.map(p =>
+    `<a class="cc-nav-link${p.active ? " active" : ""}" href="${p.path}">${p.label}</a>`
+  ).join("");
+}
+
+// ── Theme picker ──────────────────────────────────────────────────────────
+function renderThemePicker() {
+  const picker = document.getElementById("cc-theme-picker");
+  picker.innerHTML = _THEME_LIST.map(t =>
+    `<button class="${t === _THEME_NAME ? "active" : ""}" onclick="switchTheme('${t}')">${t}</button>`
+  ).join("");
+}
+
+function switchTheme(name) {
+  window.location.href = window.location.pathname + "?theme=" + name;
+}
+
+document.getElementById("cc-theme-toggle").addEventListener("click", e => {
+  document.getElementById("cc-theme-picker").classList.toggle("open");
+  e.stopPropagation();
+});
+document.addEventListener("click", () => {
+  document.getElementById("cc-theme-picker").classList.remove("open");
+});
+
+// ── Filters ───────────────────────────────────────────────────────────────
+function renderFilters(filters) {
+  const bar = document.getElementById("cc-filters");
+  if (!filters || filters.length === 0) { bar.innerHTML = ""; return; }
+
+  const groups = filters.map(f => {
+    let ctrl = "";
+    if (f.type === "select") {
+      const opts = (f.options || []).map(o =>
+        `<option value="${o}" ${_filterState[f.name] == o ? "selected" : ""}>${o}</option>`
+      ).join("");
+      ctrl = `<select id="f-${f.id}" data-filter="${f.name}"><option value="">All</option>${opts}</select>`;
+    } else if (f.type === "multi_select") {
+      const opts = (f.options || []).map(o =>
+        `<option value="${o}" ${(_filterState[f.name] || []).includes(o) ? "selected" : ""}>${o}</option>`
+      ).join("");
+      ctrl = `<select id="f-${f.id}" data-filter="${f.name}" multiple size="3">${opts}</select>`;
+    } else if (f.type === "date_range") {
+      const val = _filterState[f.name] || {};
+      ctrl = `<input type="date" id="f-${f.id}-from" data-filter="${f.name}_from" value="${val.from || ""}">
+              <input type="date" id="f-${f.id}-to" data-filter="${f.name}_to" value="${val.to || ""}">`;
+    } else if (f.type === "slider") {
+      const range = f.options || [0, 100];
+      const val = _filterState[f.name] ?? range[0];
+      ctrl = `<input type="range" id="f-${f.id}" data-filter="${f.name}"
+                     min="${range[0]}" max="${range[1]}" value="${val}"
+                     oninput="this.nextElementSibling.textContent=this.value">
+              <span>${val}</span>`;
+    } else if (f.type === "toggle") {
+      const checked = _filterState[f.name] ? "checked" : "";
+      ctrl = `<input type="checkbox" id="f-${f.id}" data-filter="${f.name}" ${checked}>`;
+    } else {
+      ctrl = `<input type="search" id="f-${f.id}" data-filter="${f.name}"
+                     placeholder="${f.placeholder || "Search..."}"
+                     value="${_filterState[f.name] || ""}">`;
+    }
+    return `<div class="cc-filter-group">
+              <label for="f-${f.id}">${f.label}</label>
+              ${ctrl}
+            </div>`;
+  }).join("");
+
+  bar.innerHTML = groups +
+    `<button class="cc-filter-apply" onclick="applyFilters()">Apply</button>
+     <button class="cc-filter-reset" onclick="resetFilters()">Reset</button>`;
+}
+
+function applyFilters() {
+  const inputs = document.querySelectorAll("[data-filter]");
+  inputs.forEach(el => {
+    const name = el.dataset.filter;
+    if (el.multiple) {
+      _filterState[name] = [...el.selectedOptions].map(o => o.value).filter(Boolean);
+    } else if (el.type === "checkbox") {
+      _filterState[name] = el.checked;
+    } else {
+      _filterState[name] = el.value || undefined;
+    }
+  });
+  fetchAndRender();
+}
+
+function resetFilters() {
+  _filterState = {};
+  fetchAndRender();
+}
+
+function fetchAndRender() {
+  const page = window.location.pathname;
+  fetch("/api/filter", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ page, filters: _filterState }),
+  })
+  .then(r => r.json())
+  .then(spec => renderDashboard(spec))
+  .catch(err => console.error("Filter error:", err));
+}
+
+// ── Dashboard renderer ────────────────────────────────────────────────────
+function renderDashboard(spec) {
+  const page = document.getElementById("cc-page");
+  page.innerHTML = "";
+
+  // Page header
+  if (spec.title || spec.subtitle) {
+    const hdr = document.createElement("div");
+    hdr.className = "cc-page-header";
+    hdr.innerHTML = `${spec.title ? `<h1>${spec.title}</h1>` : ""}
+                     ${spec.subtitle ? `<p>${spec.subtitle}</p>` : ""}`;
+    page.appendChild(hdr);
+  }
+
+  // Filters
+  renderFilters(spec.filters || []);
+
+  // KPIs
+  if (spec.kpis && spec.kpis.length > 0) {
+    const row = document.createElement("div");
+    row.className = "cc-kpi-row";
+    spec.kpis.forEach(k => row.appendChild(renderKPI(k)));
+    page.appendChild(row);
+  }
+
+  // Charts grid
+  const grid = document.createElement("div");
+  grid.className = "cc-grid";
+  (spec.charts || []).forEach(c => {
+    const cell = renderChartCell(c);
+    grid.appendChild(cell);
+  });
+  page.appendChild(grid);
+}
+
+// ── KPI ───────────────────────────────────────────────────────────────────
+function renderKPI(k) {
+  const card = document.createElement("div");
+  card.className = "cc-kpi-card";
+  card.id = "kpi-" + k.id;
+
+  let changeHtml = "";
+  if (k.change !== null && k.change !== undefined) {
+    const cls = k.change > 0 ? "up" : k.change < 0 ? "down" : "neutral";
+    const arrow = k.change > 0 ? "▲" : k.change < 0 ? "▼" : "–";
+    const pct = Math.abs(k.change).toFixed(1);
+    changeHtml = `<div class="cc-kpi-change ${cls}">${arrow} ${pct}% ${k.change_label || ""}</div>`;
+  }
+
+  const sparkHtml = k.sparkline ? `<div class="cc-kpi-sparkline" id="sp-${k.id}"></div>` : "";
+
+  card.innerHTML = `
+    <div class="cc-kpi-title">${k.title}</div>
+    <div class="cc-kpi-value">${k.prefix || ""}${k.value}${k.suffix || ""}</div>
+    ${changeHtml}
+    ${sparkHtml}
+  `;
+
+  if (k.sparkline) {
+    requestAnimationFrame(() => renderSparkline("sp-" + k.id, k.sparkline));
+  }
+  return card;
+}
+
+function renderSparkline(containerId, data) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.style.height = "36px";
+  const chart = echarts.init(el, "cc", { renderer: "canvas" });
+  chart.setOption({
+    grid: { top: 0, bottom: 0, left: 0, right: 0 },
+    xAxis: { type: "category", show: false },
+    yAxis: { type: "value", show: false },
+    series: [{
+      type: "line", data, smooth: true,
+      symbol: "none",
+      areaStyle: { opacity: 0.2 },
+      lineStyle: { width: 1.5, color: _ECHARTS_TH.color[0] },
+    }],
+  });
+}
+
+// ── Chart cell ────────────────────────────────────────────────────────────
+function renderChartCell(c) {
+  const cell = document.createElement("div");
+  cell.className = "cc-chart-card";
+  cell.id = "cell-" + c.id;
+  cell.style.gridColumn = `${c.col + 1} / span ${c.colspan}`;
+
+  if (c.type === "divider") {
+    cell.style.background = "transparent";
+    cell.style.border = "none";
+    cell.style.padding = "0";
+    cell.innerHTML = `<hr class="cc-divider" style="border-color:${c.color||''}; border-width:${c.thickness||1}px">`;
+    return cell;
+  }
+  if (c.type === "spacer") {
+    cell.style.background = "transparent";
+    cell.style.border = "none";
+    cell.style.height = (c.height || 24) + "px";
+    return cell;
+  }
+  if (c.type === "text") {
+    cell.innerHTML = `<div class="cc-text-block" style="text-align:${c.align||'left'};font-size:${c.font_size||'1rem'}">${c.content}</div>`;
+    return cell;
+  }
+  if (c.type === "section_header") {
+    cell.style.background = "transparent";
+    cell.style.border = "none";
+    cell.innerHTML = `<div class="cc-section-header"><h2>${c.title}</h2>${c.subtitle ? `<p>${c.subtitle}</p>` : ""}</div>`;
+    return cell;
+  }
+
+  // Header
+  cell.innerHTML = `
+    <div class="cc-chart-header">
+      <div>
+        <div class="cc-chart-title">${c.title || ""}</div>
+        ${c.subtitle ? `<div class="cc-chart-subtitle">${c.subtitle}</div>` : ""}
+      </div>
+      <div class="cc-chart-actions">
+        <button class="cc-chart-action-btn" onclick="downloadChart('${c.id}')" title="Download">⤓</button>
+      </div>
+    </div>
+    <div id="chart-${c.id}" class="cc-chart-canvas" style="height:${c.height || 400}px"></div>
+  `;
+
+  requestAnimationFrame(() => renderChart(c));
+  return cell;
+}
+
+// ── ECharts rendering ─────────────────────────────────────────────────────
+function renderChart(c) {
+  const el = document.getElementById("chart-" + c.id);
+  if (!el) return;
+
+  // Dispose previous instance if exists
+  if (_instances[c.id]) {
+    _instances[c.id].dispose();
+  }
+
+  if (c.data && c.data.error) {
+    el.innerHTML = `<div class="cc-error-state">⚠ ${c.data.error}</div>`;
+    return;
+  }
+
+  if (c.type === "table") { renderTable(c, el); return; }
+
+  const chart = echarts.init(el, "cc", { renderer: "canvas" });
+  _instances[c.id] = chart;
+
+  const colors = c.colors || _ECHARTS_TH.color;
+  let option = {};
+
+  switch (c.type) {
+    case "bar":      option = buildBar(c, colors); break;
+    case "line":     option = buildLine(c, colors); break;
+    case "area":     option = buildArea(c, colors); break;
+    case "pie":      option = buildPie(c, colors); break;
+    case "donut":    option = buildDonut(c, colors); break;
+    case "scatter":  option = buildScatter(c, colors); break;
+    case "heatmap":  option = buildHeatmap(c, colors); break;
+    case "radar":    option = buildRadar(c, colors); break;
+    case "waterfall":option = buildWaterfall(c, colors); break;
+    case "funnel":   option = buildFunnel(c, colors); break;
+    case "treemap":  option = buildTreemap(c, colors); break;
+    case "sankey":   option = buildSankey(c, colors); break;
+    case "gauge":    option = buildGauge(c, colors); break;
+    case "candlestick": option = buildCandlestick(c, colors); break;
+    case "histogram":option = buildHistogram(c, colors); break;
+    case "boxplot":  option = buildBoxplot(c, colors); break;
+    case "metric":   option = buildMetric(c, colors); break;
+    default:         option = buildBar(c, colors);
+  }
+
+  chart.setOption(option);
+
+  // Resize observer
+  const ro = new ResizeObserver(() => chart.resize());
+  ro.observe(el);
+}
+
+// ── Chart builders ────────────────────────────────────────────────────────
+function axisBase() {
+  return {
+    axisLine: { lineStyle: { color: _ECHARTS_TH.categoryAxis.axisLine.lineStyle.color } },
+    axisLabel: { color: _ECHARTS_TH.categoryAxis.axisLabel.color },
+    splitLine: { lineStyle: { color: _ECHARTS_TH.categoryAxis.splitLine.lineStyle.color } },
+  };
+}
+
+function buildBar(c, colors) {
+  const d = c.data;
+  const opts = c.options || {};
+  const series = d.datasets.map((ds, i) => ({
+    name: ds.label,
+    type: "bar",
+    data: ds.data,
+    itemStyle: { color: colors[i % colors.length], borderRadius: opts.horizontal ? [0,4,4,0] : [4,4,0,0] },
+    label: opts.show_values ? { show: true, position: opts.horizontal ? "right" : "top", color: _ECHARTS_TH.textStyle.color } : { show: false },
+    stack: opts.stacked ? "total" : undefined,
+  }));
+  return {
+    tooltip: { trigger: "axis" },
+    legend: d.datasets.length > 1 ? { textStyle: { color: _ECHARTS_TH.textStyle.color } } : undefined,
+    xAxis: opts.horizontal ? { type: "value", ...axisBase() } : { type: "category", data: d.labels, ...axisBase() },
+    yAxis: opts.horizontal ? { type: "category", data: d.labels, ...axisBase() } : { type: "value", ...axisBase() },
+    series,
+    animation: c.animate !== false,
+    animationDuration: c.animate_duration || 800,
+  };
+}
+
+function buildLine(c, colors) {
+  const d = c.data;
+  const opts = c.options || {};
+  const series = d.datasets.map((ds, i) => ({
+    name: ds.label, type: "line", data: ds.data,
+    smooth: opts.smooth !== false,
+    showSymbol: opts.show_dots !== false,
+    lineStyle: { type: opts.dash ? "dashed" : "solid", color: colors[i % colors.length] },
+    itemStyle: { color: colors[i % colors.length] },
+    areaStyle: opts.fill ? { opacity: 0.15 } : undefined,
+  }));
+  return {
+    tooltip: { trigger: "axis" },
+    legend: d.datasets.length > 1 ? { textStyle: { color: _ECHARTS_TH.textStyle.color } } : undefined,
+    xAxis: { type: "category", data: d.labels, ...axisBase() },
+    yAxis: { type: "value", ...axisBase() },
+    series,
+    animation: c.animate !== false,
+  };
+}
+
+function buildArea(c, colors) {
+  const d = c.data;
+  const opts = c.options || {};
+  const series = d.datasets.map((ds, i) => ({
+    name: ds.label, type: "line", data: ds.data,
+    smooth: opts.smooth !== false,
+    showSymbol: false,
+    itemStyle: { color: colors[i % colors.length] },
+    lineStyle: { color: colors[i % colors.length] },
+    areaStyle: opts.gradient ? {
+      color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1,
+               colorStops: [{ offset: 0, color: colors[i % colors.length] + "AA" },
+                            { offset: 1, color: colors[i % colors.length] + "11" }] }
+    } : { opacity: 0.3 },
+    stack: opts.stacked ? "total" : undefined,
+  }));
+  return {
+    tooltip: { trigger: "axis" },
+    legend: d.datasets.length > 1 ? { textStyle: { color: _ECHARTS_TH.textStyle.color } } : undefined,
+    xAxis: { type: "category", data: d.labels, ...axisBase() },
+    yAxis: { type: "value", ...axisBase() },
+    series,
+    animation: c.animate !== false,
+  };
+}
+
+function buildPie(c, colors) {
+  const d = c.data;
+  const opts = c.options || {};
+  const data = d.labels.map((l, i) => ({ name: l, value: d.datasets[0]?.data[i] ?? 0 }));
+  return {
+    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)" },
+    legend: { orient: "vertical", right: 10, textStyle: { color: _ECHARTS_TH.textStyle.color } },
+    series: [{
+      type: "pie", radius: "70%",
+      label: { position: opts.label_position || "outside", color: _ECHARTS_TH.textStyle.color },
+      data: data.map((d, i) => ({ ...d, itemStyle: { color: colors[i % colors.length] } })),
+    }],
+    animation: c.animate !== false,
+  };
+}
+
+function buildDonut(c, colors) {
+  const d = c.data;
+  const opts = c.options || {};
+  const inner = opts.inner_radius || "60%";
+  const data = d.labels.map((l, i) => ({ name: l, value: d.datasets[0]?.data[i] ?? 0 }));
+  const graphic = opts.center_text ? [{
+    type: "text", left: "center", top: "center",
+    style: { text: opts.center_text, fill: _ECHARTS_TH.textStyle.color, fontSize: 16, fontWeight: "bold" }
+  }] : [];
+  return {
+    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)" },
+    legend: { orient: "vertical", right: 10, textStyle: { color: _ECHARTS_TH.textStyle.color } },
+    graphic,
+    series: [{
+      type: "pie", radius: [inner, "75%"],
+      label: { position: opts.label_position || "outside", color: _ECHARTS_TH.textStyle.color },
+      data: data.map((d, i) => ({ ...d, itemStyle: { color: colors[i % colors.length] } })),
+    }],
+    animation: c.animate !== false,
+  };
+}
+
+function buildScatter(c, colors) {
+  const d = c.data;
+  const opts = c.options || {};
+  const points = (d.points || []).map(p => [p.x, p.y, p.size]);
+  return {
+    tooltip: { trigger: "item" },
+    xAxis: { type: "value", ...axisBase() },
+    yAxis: { type: "value", ...axisBase() },
+    series: [{
+      type: "scatter", data: points,
+      symbolSize: d => opts.size_col ? Math.sqrt(d[2] || 4) * 4 : 8,
+      itemStyle: { color: colors[0], opacity: 0.8 },
+    }],
+    animation: c.animate !== false,
+  };
+}
+
+function buildHeatmap(c, colors) {
+  const d = c.data;
+  const matrix = [];
+  (d.matrix || []).forEach((row, yi) => {
+    row.forEach((val, xi) => matrix.push([xi, yi, val]));
+  });
+  return {
+    tooltip: { position: "top" },
+    xAxis: { type: "category", data: d.x_labels || [], ...axisBase() },
+    yAxis: { type: "category", data: d.y_labels || [], ...axisBase() },
+    visualMap: {
+      min: Math.min(...matrix.map(m => m[2])),
+      max: Math.max(...matrix.map(m => m[2])),
+      calculable: true,
+      orient: "horizontal", bottom: 0, left: "center",
+      inRange: { color: c.options?.color_scale || ["#313695","#4575b4","#abd9e9","#ffffbf","#f46d43","#a50026"] },
+    },
+    series: [{
+      type: "heatmap", data: matrix,
+      label: { show: c.options?.show_labels !== false, color: "#fff", fontSize: 10 },
+    }],
+    animation: c.animate !== false,
+  };
+}
+
+function buildRadar(c, colors) {
+  const d = c.data;
+  const opts = c.options || {};
+  const indicators = d.labels.map(l => ({ name: l }));
+  return {
+    tooltip: {},
+    legend: { textStyle: { color: _ECHARTS_TH.textStyle.color } },
+    radar: { indicator: indicators, shape: opts.shape || "polygon",
+             axisName: { color: _ECHARTS_TH.textStyle.color },
+             splitLine: { lineStyle: { color: _ECHARTS_TH.categoryAxis.splitLine.lineStyle.color } } },
+    series: d.datasets.map((ds, i) => ({
+      type: "radar", name: ds.label,
+      data: [{ value: ds.data }],
+      lineStyle: { color: colors[i % colors.length] },
+      itemStyle: { color: colors[i % colors.length] },
+      areaStyle: opts.fill !== false ? { opacity: 0.2 } : undefined,
+    })),
+    animation: c.animate !== false,
+  };
+}
+
+function buildWaterfall(c, colors) {
+  const d = c.data;
+  const opts = c.options || {};
+  const vals = d.datasets[0]?.data || [];
+  let running = 0;
+  const helpers = [], bars = [];
+  vals.forEach((v, i) => {
+    if (opts.show_total && i === vals.length - 1) {
+      helpers.push(0);
+      bars.push({ value: Math.abs(running + v), itemStyle: { color: colors[2] || "#6366F1" } });
+    } else {
+      helpers.push(v >= 0 ? running : running + v);
+      running += v;
+      bars.push({ value: Math.abs(v), itemStyle: { color: v >= 0 ? (opts.positive_color || colors[0]) : (opts.negative_color || colors[3] || "#EF4444") } });
+    }
+  });
+  return {
+    tooltip: { trigger: "axis" },
+    xAxis: { type: "category", data: d.labels, ...axisBase() },
+    yAxis: { type: "value", ...axisBase() },
+    series: [
+      { type: "bar", stack: "wf", data: helpers, itemStyle: { color: "transparent" } },
+      { type: "bar", stack: "wf", data: bars },
+    ],
+    animation: c.animate !== false,
+  };
+}
+
+function buildFunnel(c, colors) {
+  const d = c.data;
+  const data = d.labels.map((l, i) => ({
+    name: l, value: d.datasets[0]?.data[i] ?? 0,
+    itemStyle: { color: colors[i % colors.length] }
+  })).sort((a, b) => b.value - a.value);
+  return {
+    tooltip: { trigger: "item" },
+    series: [{
+      type: "funnel",
+      left: "10%", width: "80%", top: 20, bottom: 20,
+      gap: c.options?.gap || 2,
+      data,
+      label: { color: _ECHARTS_TH.textStyle.color },
+    }],
+    animation: c.animate !== false,
+  };
+}
+
+function buildTreemap(c, colors) {
+  const d = c.data;
+  const mapColors = (node, idx) => ({
+    ...node,
+    itemStyle: { color: colors[idx % colors.length] },
+    children: (node.children || []).map((ch, i) => mapColors(ch, i)),
+  });
+  const treeData = [mapColors(d, 0)];
+  return {
+    tooltip: { trigger: "item" },
+    series: [{
+      type: "treemap", data: treeData,
+      breadcrumb: { show: c.options?.show_breadcrumb !== false },
+      label: { color: "#fff" },
+    }],
+    animation: c.animate !== false,
+  };
+}
+
+function buildSankey(c, colors) {
+  const d = c.data;
+  return {
+    tooltip: { trigger: "item", triggerOn: "mousemove" },
+    series: [{
+      type: "sankey",
+      data: d.nodes,
+      links: d.links,
+      orient: c.options?.orientation || "horizontal",
+      nodeWidth: c.options?.node_width || 20,
+      nodeGap: c.options?.node_gap || 8,
+      label: { color: _ECHARTS_TH.textStyle.color },
+      lineStyle: { color: "gradient", opacity: 0.4 },
+    }],
+    animation: c.animate !== false,
+  };
+}
+
+function buildGauge(c, colors) {
+  const d = c.data;
+  const opts = c.options || {};
+  const zones = opts.zones || [
+    { min: 0, max: 60, color: "#10B981" },
+    { min: 60, max: 80, color: "#F59E0B" },
+    { min: 80, max: 100, color: "#EF4444" },
+  ];
+  return {
+    series: [{
+      type: "gauge",
+      min: d.min ?? 0, max: d.max ?? 100,
+      data: [{ value: d.value, name: c.title }],
+      axisLine: {
+        lineStyle: {
+          width: parseInt(opts.arc_width) || 18,
+          color: zones.map(z => [(z.max - d.min) / (d.max - d.min), z.color]),
+        }
+      },
+      pointer: { show: opts.show_pointer !== false },
+      axisTick: { show: false },
+      splitLine: { show: false },
+      axisLabel: { color: _ECHARTS_TH.textStyle.color, fontSize: 11 },
+      detail: { formatter: "{value}", color: _ECHARTS_TH.textStyle.color, fontSize: 20, fontWeight: "bold" },
+      title: { color: _ECHARTS_TH.textStyle.color, fontSize: 13 },
+    }],
+    animation: c.animate !== false,
+  };
+}
+
+function buildCandlestick(c, colors) {
+  const d = c.data;
+  const ohlc = d.ohlc || [];
+  const dates = ohlc.map(r => r.date);
+  const vals  = ohlc.map(r => [r.open, r.close, r.low, r.high]);
+  return {
+    tooltip: { trigger: "axis" },
+    xAxis: { type: "category", data: dates, ...axisBase() },
+    yAxis: { type: "value", scale: true, ...axisBase() },
+    series: [{ type: "candlestick", data: vals,
+      itemStyle: { color: colors[0], color0: colors[3] || "#EF4444", borderColor: colors[0], borderColor0: colors[3] || "#EF4444" } }],
+    dataZoom: [{ type: "inside", start: 0, end: 100 }, { type: "slider" }],
+    animation: c.animate !== false,
+  };
+}
+
+function buildHistogram(c, colors) {
+  const d = c.data;
+  return {
+    tooltip: { trigger: "axis" },
+    xAxis: { type: "category", data: d.labels, ...axisBase() },
+    yAxis: { type: "value", ...axisBase() },
+    series: [{
+      type: "bar", data: d.datasets[0]?.data || [],
+      barWidth: "99%",
+      itemStyle: { color: colors[0], borderRadius: [3,3,0,0] },
+    }],
+    animation: c.animate !== false,
+  };
+}
+
+function buildBoxplot(c, colors) {
+  const d = c.data;
+  return {
+    tooltip: { trigger: "axis" },
+    xAxis: { type: "category", data: d.labels, ...axisBase() },
+    yAxis: { type: "value", ...axisBase() },
+    series: [{
+      type: "boxplot", data: d.datasets[0]?.data || [],
+      itemStyle: { color: colors[0], borderColor: colors[0] },
+    }],
+    animation: c.animate !== false,
+  };
+}
+
+function buildMetric(c, colors) {
+  // Metric renders as a centred big number inside its card — no ECharts needed
+  const el = document.getElementById("chart-" + c.id);
+  if (!el) return {};
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:8px">
+      <div style="font-family:var(--cc-font-mono);font-size:2.8rem;font-weight:800;color:${colors[0]}">${c.data?.value ?? ""}</div>
+      ${c.data?.trend != null ? `<div style="font-size:0.85rem;color:${c.data.trend >= 0 ? "var(--cc-success)" : "var(--cc-danger)"}">${c.data.trend >= 0 ? "▲" : "▼"} ${Math.abs(c.data.trend)}%</div>` : ""}
+    </div>`;
+  return null; // no echarts option
+}
+
+// ── Table renderer ────────────────────────────────────────────────────────
+function renderTable(c, el) {
+  const opts = c.options || {};
+  const pageSize = opts.page_size || 20;
+  const id = c.id;
+  if (!_tableState[id]) _tableState[id] = { page: 0, sort: null, sortDir: 1, search: "" };
+  const st = _tableState[id];
+
+  function filtered(rows) {
+    if (!st.search) return rows;
+    const q = st.search.toLowerCase();
+    return rows.filter(r => r.some(v => String(v ?? "").toLowerCase().includes(q)));
+  }
+  function sorted(rows) {
+    if (st.sort === null) return rows;
+    return [...rows].sort((a, b) => {
+      const av = a[st.sort], bv = b[st.sort];
+      return av < bv ? -st.sortDir : av > bv ? st.sortDir : 0;
+    });
+  }
+
+  function render() {
+    const { columns, rows } = c.data;
+    const visible = sorted(filtered(rows));
+    const totalPages = Math.max(1, Math.ceil(visible.length / pageSize));
+    st.page = Math.min(st.page, totalPages - 1);
+    const pageRows = visible.slice(st.page * pageSize, (st.page + 1) * pageSize);
+
+    const headers = columns.map((col, i) => {
+      const isSorted = st.sort === i;
+      return `<th class="${isSorted ? "sorted" : ""}" onclick="ccTableSort('${id}', ${i})">
+                ${col} <span class="sort-icon">${isSorted ? (st.sortDir > 0 ? "↑" : "↓") : "↕"}</span>
+              </th>`;
+    }).join("");
+
+    const bodyRows = pageRows.map(row =>
+      `<tr>${row.map(v => `<td>${v ?? ""}</td>`).join("")}</tr>`
+    ).join("");
+
+    const pageNums = [];
+    for (let p = 0; p < totalPages; p++) {
+      if (totalPages <= 7 || p === 0 || p === totalPages - 1 || Math.abs(p - st.page) <= 1) {
+        pageNums.push(`<button class="cc-page-btn${p === st.page ? " active" : ""}" onclick="ccTablePage('${id}', ${p})">${p + 1}</button>`);
+      } else if (pageNums[pageNums.length - 1] !== "…") {
+        pageNums.push("…");
+      }
+    }
+
+    el.innerHTML = `
+      ${opts.searchable !== false ? `
+        <div class="cc-table-controls">
+          <input class="cc-table-search" placeholder="Search…" value="${st.search}"
+                 oninput="ccTableSearch('${id}', this.value)">
+          <div class="cc-pagination">
+            <button class="cc-page-btn" onclick="ccTablePage('${id}', ${st.page - 1})" ${st.page === 0 ? "disabled" : ""}>‹</button>
+            ${pageNums.join("")}
+            <button class="cc-page-btn" onclick="ccTablePage('${id}', ${st.page + 1})" ${st.page >= totalPages - 1 ? "disabled" : ""}>›</button>
+            <span style="margin-left:8px;color:var(--cc-text-muted)">${visible.length} rows</span>
+          </div>
+        </div>` : ""}
+      <div class="cc-table-wrap">
+        <table class="cc-table${opts.striped !== false ? " striped" : ""}">
+          <thead><tr>${headers}</tr></thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  render();
+}
+
+// Table event handlers (global so inline onclick works)
+window.ccTableSort   = (id, col) => { const st = _tableState[id]; st.sort = col; st.sortDir = st.sort === col ? -st.sortDir : 1; renderChart(_SPEC.charts.find(c => c.id === id) || {}); };
+window.ccTablePage   = (id, p)   => { _tableState[id].page = p; renderChart(_SPEC.charts.find(c => c.id === id) || {}); };
+window.ccTableSearch = (id, q)   => { _tableState[id].search = q; _tableState[id].page = 0; renderChart(_SPEC.charts.find(c => c.id === id) || {}); };
+
+// ── Download chart ────────────────────────────────────────────────────────
+function downloadChart(id) {
+  const chart = _instances[id];
+  if (!chart) return;
+  const url = chart.getDataURL({ type: "png", pixelRatio: 2, backgroundColor: "transparent" });
+  const a = document.createElement("a");
+  a.href = url; a.download = id + ".png"; a.click();
+}
+
+// ── SSE — live data ───────────────────────────────────────────────────────
+function connectSSE() {
+  if (_STATIC_MODE) return;
+  const dot = document.getElementById("cc-live-dot");
+  const es = new EventSource("/api/events");
+
+  es.addEventListener("connected", () => { dot.className = "connected"; });
+  es.addEventListener("heartbeat", () => {});
+  es.addEventListener("refresh", e => {
+    const payload = JSON.parse(e.data);
+    const { id, data } = payload;
+    // Update KPI
+    const kpiEl = document.getElementById("kpi-" + id);
+    if (kpiEl) {
+      const valEl = kpiEl.querySelector(".cc-kpi-value");
+      if (valEl && data !== undefined) valEl.textContent = String(data);
+    }
+    // Update chart
+    const inst = _instances[id];
+    if (inst) {
+      // Re-fetch spec for this component and update
+      inst.setOption({ series: [{ data }] }, { notMerge: false });
+    }
+  });
+
+  es.addEventListener("dashboard-update", e => {
+    const payload = JSON.parse(e.data);
+    renderDashboard(payload.spec);
+  });
+
+  es.addEventListener("error", () => {
+    dot.className = "";
+    setTimeout(connectSSE, 3000);
+  });
+
+  es.onerror = () => {
+    dot.className = "";
+    es.close();
+    setTimeout(connectSSE, 3000);
+  };
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+renderNav();
+renderThemePicker();
+renderDashboard(_SPEC);
+connectSSE();
+
+// Global resize
+window.addEventListener("resize", () => {
+  Object.values(_instances).forEach(c => c && c.resize());
+});
+</script>
+</body>
+</html>
