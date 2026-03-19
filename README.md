@@ -1,44 +1,62 @@
 <div align="center">
 
-<h1><code>CHART</code><code>CRAFT</code></h1>
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  HEADER                                                      -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<p>
+  <code style="
+    font-size: 3.2em;
+    font-weight: 900;
+    letter-spacing: -0.06em;
+    background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 50%, #F97316 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  ">CHART</code><code style="
+    font-size: 3.2em;
+    font-weight: 900;
+    letter-spacing: -0.06em;
+    color: #e2e8f0;
+    text-shadow: 0 0 30px rgba(139,92,246,0.4);
+  ">CRAFT</code>
+</p>
 
-**Python Dashboard Builder**
+<p style="
+  font-size: 1.05em;
+  color: #94a3b8;
+  margin-top: 0.4em;
+  margin-bottom: 0.2em;
+">
+  <strong style="color: #e2e8f0">Python Dashboard Builder</strong>
+  &mdash;
+  Zero deps &bull; Real-time SSE &bull; Drag-and-drop &bull; Export to HTML, PDF, Docker
+</p>
 
-*Write Python. Get a stunning, interactive, real-time dashboard — instantly.*
+<p>
+  <a href="https://pypi.org/project/chartcraft/">
+    <img src="https://img.shields.io/badge/PyPI-0.1.1-8B5CF6?style=flat-square&logo=pypi&logoColor=white"
+         alt="PyPI" style="border-radius:6px"/>
+  </a>
+  <a href="https://github.com/stephenbaraik/chartcraft/actions">
+    <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white"
+         alt="Python 3.11+" style="border-radius:6px"/>
+  </a>
+  <a href="https://github.com/stephenbaraik/chartcraft/blob/master/LICENSE">
+    <img src="https://img.shields.io/badge/License-MIT-10B981?style=flat-square"
+         alt="MIT" style="border-radius:6px"/>
+  </a>
+  <a href="https://github.com/stephenbaraik/chartcraft">
+    <img src="https://img.shields.io/badge/Dependencies-Zero-8B5CF6?style=flat-square"
+         alt="Zero dependencies" style="border-radius:6px"/>
+  </a>
+</p>
 
-<br/>
-
-[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![ECharts](https://img.shields.io/badge/ECharts-5.5-E14329?style=for-the-badge&logo=apache&logoColor=white)](https://echarts.apache.org)
-[![License](https://img.shields.io/badge/License-MIT-10B981?style=for-the-badge)](LICENSE)
-[![Deps](https://img.shields.io/badge/Dependencies-Zero-8B5CF6?style=for-the-badge)](#)
-[![SSE](https://img.shields.io/badge/Server-SSE%20Streaming-EC4899?style=for-the-badge)](#)
-
-<br/>
-
-[**Quickstart**](#-quickstart) · [**Docs**](docs/getting-started.md) · [**Presets & Builders**](docs/presets-and-page-builders.md) · [**Data Sources**](docs/data-sources.md) · [**API Reference**](docs/api-reference.md)
-
-<br/>
-
+<!-- ═══════════════════════════════════════════════════════════ -->
 </div>
 
 ---
 
-## ◆ Three API Layers
-
-Choose the level that matches how fast you want to move:
-
-| Layer | What it is | Use when |
-|-------|-----------|----------|
-| **Core classes** | `cc.Dashboard`, `cc.Bar`, `cc.Line`, `cc.KPI`, `cc.Filter` | You need exact control |
-| **Presets & helpers** | `cc.Page(...)`, `cc.section(...)`, `cc.trend_line(...)`, `cc.sql_kpi(...)` | You want clean, readable code |
-| **Page builders** | `cc.executive_page(...)`, `cc.sales_page(...)`, `cc.customer_page(...)`, `cc.product_page(...)` | Your dashboard fits a common story |
-
-The **Dashboard Builder** at `http://localhost:8050/builder` is a full drag-and-drop canvas that generates live Python code as you design — and stays in sync both ways. No build step. No npm. No JavaScript.
-
----
-
-## ◆ Quickstart
+## Quick Start
 
 ```bash
 pip install chartcraft
@@ -110,9 +128,23 @@ def overview():
     )
 
 app.run()
-# ◆ ChartCraft  →  http://localhost:8050
-# Builder       →  http://localhost:8050/builder
+# ChartCraft  ->  http://localhost:8050
+# Builder     ->  http://localhost:8050/builder
 ```
+
+---
+
+## ◆ Three API Layers
+
+Choose the level that matches how fast you want to move:
+
+| Layer | What it is | Use when |
+|-------|-----------|----------|
+| **Core classes** | `cc.Dashboard`, `cc.Bar`, `cc.Line`, `cc.KPI`, `cc.Filter` | You need exact control |
+| **Presets & helpers** | `cc.Page(...)`, `cc.section(...)`, `cc.trend_line(...)`, `cc.sql_kpi(...)` | You want clean, readable code |
+| **Page builders** | `cc.executive_page(...)`, `cc.sales_page(...)`, `cc.customer_page(...)`, `cc.product_page(...)` | Your dashboard fits a common story |
+
+The **Dashboard Builder** at `http://localhost:8050/builder` is a full drag-and-drop canvas that generates live Python code as you design — and stays in sync both ways. No build step. No npm. No JavaScript.
 
 ---
 
