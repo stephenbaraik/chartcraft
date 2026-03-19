@@ -43,3 +43,6 @@ Thumbs.db
 # Exports
 *.pdf
 dashboard_export/
+
+#claude
+*.claude

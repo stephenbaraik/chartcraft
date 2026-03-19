@@ -26,7 +26,8 @@ setup(
         "mysql":  ["sqlalchemy>=2.0", "pymysql"],
         "mssql":  ["sqlalchemy>=2.0", "pyodbc"],
         "pandas": ["pandas>=1.5"],
-        "full":   ["sqlalchemy>=2.0", "psycopg2-binary", "pymysql", "pandas>=1.5"],
+        "pdf":    ["playwright>=1.40"],
+        "full":   ["sqlalchemy>=2.0", "psycopg2-binary", "pymysql", "pandas>=1.5", "playwright>=1.40"],
     },
     classifiers=[
         "Programming Language :: Python :: 3",

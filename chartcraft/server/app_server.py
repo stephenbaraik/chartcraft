@@ -20,6 +20,8 @@ class AppServer:
         self.pages: Dict[str, Callable] = {}
         self._theme_name = theme
         self.theme_obj: Theme = get_theme(theme)
+        self._password: Optional[str] = None   # HTTP Basic Auth password (username = "admin")
+        self._token: Optional[str] = None      # Bearer token / ?token= query param
 
     def _themes_list(self):
         return list(THEMES.keys())
@@ -41,7 +43,13 @@ class AppServer:
         port: int = 8050,
         debug: bool = False,
         open_browser: bool = True,
+        password: str = None,
+        token: str = None,
     ):
+        if password:
+            self._password = password
+        if token:
+            self._token = token
         # Inject server reference into handler class
         CCHandler.server_ref = self
 
@@ -76,6 +84,31 @@ class AppServer:
             f.write(html)
         print(f"  ◆ Exported → {path}")
         return path
+
+    def save_all(self, output_dir: str, theme: str = None) -> list:
+        """Export all registered pages as separate HTML files into output_dir.
+
+        Path mapping: '/' → 'index.html', '/products' → 'products.html'.
+        Returns a list of file paths written.
+        """
+        import os as _os
+        if theme:
+            self.set_theme(theme)
+        _os.makedirs(output_dir, exist_ok=True)
+        written = []
+        for page_path, page_fn in self.pages.items():
+            if page_path == "/":
+                filename = "index.html"
+            else:
+                filename = page_path.lstrip("/").replace("/", "_") + ".html"
+            full_path = _os.path.join(output_dir, filename)
+            dashboard = page_fn()
+            html = self._render_static(dashboard)
+            with open(full_path, "w", encoding="utf-8") as f:
+                f.write(html)
+            print(f"  ◆ Exported → {full_path}")
+            written.append(full_path)
+        return written
 
     def to_html(self, page: str = "/", theme: str = None) -> str:
         """Return the dashboard HTML as a string."""
