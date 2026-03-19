@@ -66,5 +66,4 @@ chartcraft = [
     "static/*.js",
     "builder/*.html",
     "builder/components/*.js",
-    "templates/*.py",
 ]
