@@ -6,7 +6,7 @@ ChartCraft dashboards can be exported as standalone HTML files, Jupyter notebook
 
 ## Static HTML Export
 
-Export a dashboard as a self-contained HTML file with no server required. Share it via email, upload to S3, or embed in a web page.
+Export a dashboard as a self-contained HTML file — share it via email, upload to S3, or embed anywhere.
 
 ### Single Page
 
@@ -16,25 +16,21 @@ app.save("sales.html", page="/sales")               # Export a specific page
 app.save("report.html", page="/", theme="frost")    # Override theme
 ```
 
-The generated HTML embeds ECharts from CDN and all dashboard data inline. It works offline once loaded.
+The HTML embeds ECharts from CDN and all dashboard data inline. Works offline once loaded.
 
 ### All Pages
 
 Export every registered page into a directory:
 
 ```python
-# Creates: output/index.html, output/sales.html, output/customers.html
 paths = app.save_all("output/")
-print(paths)
-# → ['output/index.html', 'output/sales.html', 'output/customers.html']
+# Creates: output/index.html, output/sales.html, output/customers.html
 ```
 
 Page path mapping:
 - `/` → `index.html`
 - `/sales` → `sales.html`
 - `/admin/users` → `admin_users.html`
-
-### HTML String
 
 Get the HTML as a string without writing a file:
 
@@ -43,9 +39,9 @@ html = app.to_html(page="/", theme="frost")
 # Use html however you want — send as email body, write to S3, etc.
 ```
 
-### Quick Dashboard (no App needed)
+### Quick Dashboard
 
-For one-off reports:
+For one-off reports without an App:
 
 ```python
 cc.quick_dashboard(
@@ -63,7 +59,7 @@ cc.quick_dashboard(
 
 ## PDF Export
 
-Export a dashboard as a PDF via headless Chromium (Playwright).
+Export the current app as a combined multi-page PDF via headless Chromium (Playwright).
 
 **Install:**
 ```bash
@@ -79,7 +75,7 @@ GET http://localhost:8050/api/export/pdf?page=/
 
 Or from the viewer: click the **PDF** button in the top-right nav bar.
 
-The PDF uses the print CSS media query — charts are rendered full-width, the nav bar is hidden, and all backgrounds are included.
+Current behavior: all registered routes export to one PDF, one dashboard route per page, each page fitted to the canvas, and the active route's filter state included when triggered from the viewer.
 
 ### Programmatic PDF
 
@@ -91,18 +87,12 @@ with open("sales_report.pdf", "wb") as f:
     f.write(response.content)
 ```
 
-### Without Playwright (Browser Print)
+### Without Playwright
 
-If Playwright is not installed, the API returns:
-
+If Playwright is unavailable, the API returns a JSON fallback:
 ```json
-{
-  "fallback": "print",
-  "message": "Install playwright for PDF: pip install playwright && playwright install chromium"
-}
+{ "fallback": "print", "message": "pip install chartcraft[pdf]" }
 ```
-
-In this case, use the browser's native print dialog (`Ctrl+P`). The dashboard has print CSS that hides the nav bar and formats charts for paper.
 
 ---
 
@@ -205,13 +195,13 @@ CMD ["python", "app.py"]
 
 ## Live Server Deployment
 
-### Basic: Run directly
+### Basic
 
 ```python
 app.run(host="0.0.0.0", port=8050)
 ```
 
-Access from any machine on the network at `http://your-ip:8050`.
+Access from any machine on the network:
 
 ### With Authentication
 
@@ -337,9 +327,9 @@ DATABASE_URL=postgresql://user:pass@host/db
 
 | | Static HTML | Live Server |
 |--|-------------|-------------|
-| Dependencies at runtime | None | Python + chartcraft |
+| Runtime deps | None | Python + chartcraft |
 | Real-time data | No | Yes (`refresh=N`) |
 | Filters | No | Yes |
 | Multi-page nav | No (separate files) | Yes |
-| Share | Email / S3 / any host | Requires server |
+| Share | Email / S3 / any host | Server required |
 | Best for | Reports, snapshots, archiving | Interactive dashboards, live ops |

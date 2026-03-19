@@ -1,6 +1,6 @@
 # Visual Dashboard Builder
 
-The Dashboard Builder is a Figma-like drag-and-drop interface for designing dashboards visually — no code required. Navigate to `http://localhost:8050/builder` while your app is running.
+Navigate to `http://localhost:8050/builder` while your app is running.
 
 ---
 
@@ -220,12 +220,7 @@ python my_dashboard.py
 
 ### Jupyter Notebook (.ipynb)
 
-Downloads a `.ipynb` notebook with three cells:
-1. Install cell: `pip install chartcraft`
-2. Code cell: the full dashboard Python code
-3. Run cell: `app.run()`
-
-Open in Jupyter to iterate and share:
+Downloads a notebook with install, code, and run cells. Open in Jupyter:
 
 ```bash
 jupyter notebook my_dashboard.ipynb
@@ -252,7 +247,7 @@ docker-compose up
 
 ## Bidirectional Sync
 
-The builder and code panel stay perfectly in sync:
+The builder and code panel stay in sync:
 
 | Action | Result |
 |--------|--------|
@@ -283,7 +278,7 @@ The generated Python code is always valid and runnable — copy it and run `pyth
 
 ## Tips
 
-- **Start from code:** Paste existing Python code into the code panel and click Parse to import it into the canvas
-- **Iterate fast:** Make changes in the builder, export to Python, modify the Python, paste back
-- **Use the schema browser:** Connect to a real database in the Data tab to see actual table and column names
-- **Color harmonies:** Use the Harmonies tab in the color picker to auto-generate coherent color sets for multi-series charts
+- **Start from code:** paste existing Python into the code panel and click Parse
+- **Iterate fast:** change in builder, export to Python, modify, paste back
+- **Schema browser:** connect a real DB in the Data tab to see actual table and column names
+- **Color harmonies:** use the Harmonies tab in the color picker to auto-generate coherent sets for multi-series charts
