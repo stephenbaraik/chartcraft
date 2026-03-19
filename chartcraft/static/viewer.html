@@ -365,25 +365,82 @@ body {
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
 /* ── Responsive ── */
+#cc-hamburger {
+  display: none;
+  background: none; border: none; cursor: pointer;
+  color: var(--cc-text); font-size: 1.3rem; padding: 4px 8px;
+  margin-right: 4px;
+}
+#cc-nav-drawer {
+  display: none;
+  position: fixed; top: 52px; left: 0; right: 0;
+  background: var(--cc-bg-card); border-bottom: 1px solid var(--cc-border);
+  padding: 8px 16px; z-index: 99; flex-direction: column; gap: 4px;
+  box-shadow: 0 8px 24px var(--cc-shadow);
+}
+#cc-nav-drawer.open { display: flex; }
+#cc-nav-drawer a {
+  padding: 10px 12px; border-radius: var(--cc-radius-sm);
+  text-decoration: none; color: var(--cc-text-secondary);
+  font-size: 0.9rem; font-weight: 500;
+}
+#cc-nav-drawer a.active { color: var(--cc-accent); }
+#cc-skip-link {
+  position: absolute; top: -40px; left: 16px;
+  background: var(--cc-accent); color: #fff;
+  padding: 8px 16px; border-radius: 4px; text-decoration: none;
+  font-size: 0.85rem; z-index: 9999; transition: top 0.15s;
+}
+#cc-skip-link:focus { top: 8px; }
+
+/* Print / PDF styles */
+@media print {
+  #cc-nav, #cc-filters, #cc-theme-picker, #cc-nav-drawer { display: none !important; }
+  body { background: white !important; color: black !important; }
+  .cc-chart-card { break-inside: avoid; box-shadow: none; border: 1px solid #ddd; }
+  .cc-grid { display: block !important; }
+  .cc-grid > * { display: block !important; margin-bottom: 16px; width: 100% !important; }
+  .cc-kpi-card { display: inline-block; width: 22%; margin: 4px; }
+  .cc-chart-actions { display: none !important; }
+}
+
 @media (max-width: 768px) {
+  #cc-hamburger { display: block; }
+  #cc-nav-links { display: none; }
   .cc-grid { grid-template-columns: 1fr !important; }
   .cc-grid > * { grid-column: 1 / -1 !important; }
-  #cc-nav { overflow-x: auto; }
+  #cc-nav { overflow-x: hidden; }
+  .cc-kpi-row { flex-wrap: wrap; }
+  .cc-kpi-card { min-width: calc(50% - 12px); }
+  #cc-filters { overflow-x: auto; flex-wrap: nowrap; padding: 10px 16px; }
+  .cc-chart-canvas { min-height: 240px !important; }
+  .cc-nav-right .cc-builder-link { display: none; }
+}
+@media (max-width: 480px) {
+  .cc-kpi-card { min-width: 100%; }
+  .cc-page-header h1 { font-size: 1.3rem; }
 }
 </style>
 </head>
 <body>
 
+<!-- Skip navigation (accessibility) -->
+<a href="#cc-page" id="cc-skip-link">Skip to content</a>
+
 <!-- Nav -->
-<nav id="cc-nav">
-  <a class="cc-brand" href="/">◆ ChartCraft</a>
-  <div id="cc-nav-links"></div>
+<nav id="cc-nav" role="navigation" aria-label="Main navigation">
+  <button id="cc-hamburger" aria-label="Toggle navigation" aria-expanded="false"
+    onclick="toggleMobileNav(this)">&#9776;</button>
+  <a class="cc-brand" href="/">&#9670; ChartCraft</a>
+  <div id="cc-nav-links" role="menubar"></div>
   <div class="cc-nav-right">
-    <div id="cc-live-dot" title="Live data connection"></div>
-    <button class="cc-theme-btn" id="cc-theme-toggle" title="Switch theme">◑ Theme</button>
-    <a class="cc-builder-link" href="/builder">⊞ Builder</a>
+    <div id="cc-live-dot" title="Live data connection" role="status" aria-label="Live connection status"></div>
+    <button class="cc-theme-btn" id="cc-theme-toggle" title="Switch theme" aria-haspopup="true">&#9685; Theme</button>
+    <a class="cc-builder-link" href="/builder">&#8862; Builder</a>
+    <button class="cc-theme-btn" id="cc-pdf-btn" title="Export as PDF" onclick="exportPDF()" style="display:none">&#128438; PDF</button>
   </div>
 </nav>
+<div id="cc-nav-drawer" role="menu" aria-label="Page navigation"></div>
 <div id="cc-theme-picker"></div>
 
 <!-- Filters -->
@@ -422,10 +479,57 @@ echarts.registerTheme("cc", _ECHARTS_TH);
 
 // ── Nav ───────────────────────────────────────────────────────────────────
 function renderNav() {
-  const container = document.getElementById("cc-nav-links");
-  container.innerHTML = _NAV.map(p =>
-    `<a class="cc-nav-link${p.active ? " active" : ""}" href="${p.path}">${p.label}</a>`
+  const links = _NAV.map(p =>
+    `<a class="cc-nav-link${p.active ? " active" : ""}" href="${p.path}" role="menuitem">${p.label}</a>`
   ).join("");
+  document.getElementById("cc-nav-links").innerHTML = links;
+  // Mobile drawer
+  const drawer = document.getElementById("cc-nav-drawer");
+  if (drawer) {
+    drawer.innerHTML = _NAV.map(p =>
+      `<a class="${p.active ? "active" : ""}" href="${p.path}">${p.label}</a>`
+    ).join("");
+  }
+  // Show PDF button in non-static mode
+  if (!_STATIC_MODE) {
+    const pdfBtn = document.getElementById("cc-pdf-btn");
+    if (pdfBtn) pdfBtn.style.display = "";
+  }
+}
+
+// ── Mobile nav ─────────────────────────────────────────────────────────────
+function toggleMobileNav(btn) {
+  const drawer = document.getElementById("cc-nav-drawer");
+  const open = drawer.classList.toggle("open");
+  btn.setAttribute("aria-expanded", String(open));
+}
+document.addEventListener("click", e => {
+  if (!e.target.closest("#cc-nav") && !e.target.closest("#cc-nav-drawer")) {
+    document.getElementById("cc-nav-drawer")?.classList.remove("open");
+    document.getElementById("cc-hamburger")?.setAttribute("aria-expanded", "false");
+  }
+});
+
+// ── PDF export ─────────────────────────────────────────────────────────────
+function exportPDF() {
+  const page = window.location.pathname;
+  // Try server-side Playwright PDF first
+  fetch(`/api/export/pdf?page=${encodeURIComponent(page)}`)
+    .then(r => {
+      if (r.headers.get("Content-Type") === "application/pdf") {
+        return r.blob().then(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = "dashboard.pdf"; a.click();
+          URL.revokeObjectURL(url);
+        });
+      }
+      return r.json().then(j => {
+        // Playwright not installed — fall back to browser print
+        if (j.fallback === "print") window.print();
+      });
+    })
+    .catch(() => window.print());
 }
 
 // ── Theme picker ──────────────────────────────────────────────────────────
@@ -651,6 +755,8 @@ function renderKPI(k) {
   const card = document.createElement("div");
   card.className = "cc-kpi-card";
   card.id = "kpi-" + k.id;
+  card.setAttribute("role", "article");
+  card.setAttribute("aria-label", `${k.title}: ${k.prefix || ""}${k.value}${k.suffix || ""}`);
 
   let changeHtml = "";
   if (k.change !== null && k.change !== undefined) {
@@ -737,10 +843,13 @@ function renderChartCell(c) {
         <button class="cc-chart-action-btn" onclick="downloadChart('${c.id}')" title="Download PNG">&#8595;</button>
       </div>
     </div>
-    <div id="chart-${c.id}" class="cc-chart-canvas" style="height:${c.height || 400}px"></div>
+    <div id="chart-${c.id}" class="cc-chart-canvas" style="height:${c.height || 400}px"
+      role="img" aria-label="${c.title || c.type} chart${c.subtitle ? ': ' + c.subtitle : ''}"></div>
   `;
 
-  requestAnimationFrame(() => renderChart(c));
+  // Lazy-init: only render chart when cell enters viewport
+  _lazyObserver.observe(cell);
+  cell.dataset.chartSpec = JSON.stringify(c);
   return cell;
 }
 
@@ -1303,15 +1412,54 @@ function connectSSE() {
   };
 }
 
+// ── Lazy chart loading (IntersectionObserver) ──────────────────────────────
+const _lazyObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    const cell = entry.target;
+    const specStr = cell.dataset.chartSpec;
+    if (!specStr) return;
+    try {
+      const c = JSON.parse(specStr);
+      delete cell.dataset.chartSpec;   // only init once
+      renderChart(c);
+    } catch {}
+    _lazyObserver.unobserve(cell);
+  });
+}, { rootMargin: "120px" });  // pre-load 120px before entering viewport
+
+// ── Accessibility: ARIA live region for filter changes ──────────────────────
+const _ariaLive = document.createElement("div");
+_ariaLive.setAttribute("aria-live", "polite");
+_ariaLive.setAttribute("aria-atomic", "true");
+_ariaLive.style.cssText = "position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden";
+document.body.appendChild(_ariaLive);
+
+function _announceA11y(msg) {
+  _ariaLive.textContent = "";
+  requestAnimationFrame(() => { _ariaLive.textContent = msg; });
+}
+
+// Announce filter apply to screen readers
+const _origFetchAndRender = fetchAndRender;
+function fetchAndRender() {
+  _announceA11y("Applying filters, updating dashboard…");
+  _origFetchAndRender();
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────
 renderNav();
 renderThemePicker();
 renderDashboard(_SPEC);
 connectSSE();
 
-// Global resize
+// Debounced global resize
+let _resizeTimer;
 window.addEventListener("resize", () => {
-  Object.values(_instances).forEach(c => c && c.resize());
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(() => {
+    Object.values(_instances).forEach(c => c && c.resize());
+  }, 150);
 });
 </script>
 </body>

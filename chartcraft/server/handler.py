@@ -23,6 +23,21 @@ if TYPE_CHECKING:
 STATIC_DIR = Path(__file__).parent.parent / "static"
 BUILDER_DIR = Path(__file__).parent.parent / "builder"
 
+import time as _time_mod
+_spec_cache: dict = {}   # path → (spec, timestamp)
+_SPEC_TTL = 2.0          # seconds
+
+
+def _get_cached_spec(page_path, page_fn, filter_state):
+    key = (page_path, frozenset(str(filter_state.items())))
+    cached = _spec_cache.get(key)
+    if cached and (_time_mod.time() - cached[1]) < _SPEC_TTL:
+        return cached[0]
+    dashboard = page_fn()
+    spec = dashboard.to_spec(filter_state)
+    _spec_cache[key] = (spec, _time_mod.time())
+    return spec
+
 
 class CCHandler(BaseHTTPRequestHandler):
     """One instance per request. `self.server_ref` is the AppServer."""
@@ -33,11 +48,47 @@ class CCHandler(BaseHTTPRequestHandler):
         # Suppress default noisy logging; could route to a logger later
         pass
 
+    def _check_auth(self) -> bool:
+        """Return True if request is authorized (or auth is not configured)."""
+        srv = self.server_ref
+        if not srv._password and not srv._token:
+            return True
+        # Token auth: ?token=... or Authorization: Bearer ...
+        if srv._token:
+            qs = parse_qs(urlparse(self.path).query)
+            if qs.get("token", [""])[0] == srv._token:
+                return True
+            auth_hdr = self.headers.get("Authorization", "")
+            if auth_hdr == f"Bearer {srv._token}":
+                return True
+        # HTTP Basic Auth
+        if srv._password:
+            import base64
+            auth_hdr = self.headers.get("Authorization", "")
+            if auth_hdr.startswith("Basic "):
+                decoded = base64.b64decode(auth_hdr[6:]).decode("utf-8", errors="replace")
+                _, _, pwd = decoded.partition(":")
+                if pwd == srv._password:
+                    return True
+        return False
+
+    def _send_auth_required(self):
+        body = b"<h1>401 Unauthorized</h1><p>Authentication required.</p>"
+        self.send_response(401)
+        self.send_header("WWW-Authenticate", 'Basic realm="ChartCraft"')
+        self.send_header("Content-Type", "text/html")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     # ------------------------------------------------------------------
     # Route dispatch
     # ------------------------------------------------------------------
 
     def do_GET(self):
+        if not self._check_auth():
+            self._send_auth_required()
+            return
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
         qs = parse_qs(parsed.query)
@@ -53,6 +104,7 @@ class CCHandler(BaseHTTPRequestHandler):
             "/api/projects":        self._api_projects_list,
             "/api/export/notebook": self._api_export_notebook,
             "/api/export/docker":   self._api_export_docker,
+            "/api/export/pdf":      self._api_export_pdf,
             "/api/connections":     self._api_connections_list,
             "/api/schema":          self._api_schema,
             "/api/filter_options":  self._api_filter_options,
@@ -76,6 +128,9 @@ class CCHandler(BaseHTTPRequestHandler):
             self._send_404()
 
     def do_POST(self):
+        if not self._check_auth():
+            self._send_auth_required()
+            return
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
 
@@ -120,9 +175,9 @@ class CCHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            dashboard = page_fn()
             theme = self.server_ref.theme_obj
-            spec = dashboard.to_spec()
+            spec = _get_cached_spec(page_path, page_fn, {})
+            dashboard = page_fn()
             nav = self._build_nav(current=page_path)
 
             html = self._load_template("viewer.html")
@@ -168,8 +223,7 @@ class CCHandler(BaseHTTPRequestHandler):
             self._send_json({"error": f"Page '{page_path}' not found"}, status=404)
             return
 
-        dashboard = page_fn()
-        spec = dashboard.to_spec(filter_state)
+        spec = _get_cached_spec(page_path, page_fn, filter_state)
         self._send_json(spec)
 
     def _api_events(self):
@@ -372,6 +426,38 @@ class CCHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
+        except Exception:
+            self._send_json({"error": traceback.format_exc()}, status=500)
+
+    def _api_export_pdf(self):
+        """GET /api/export/pdf?page=... — export page as PDF via Playwright or print trigger."""
+        qs = parse_qs(urlparse(self.path).query)
+        page_path = qs.get("page", ["/"])[0]
+
+        try:
+            from playwright.sync_api import sync_playwright
+            page_fn = self.server_ref.pages.get(page_path)
+            if not page_fn:
+                self._send_json({"error": "Page not found"}, status=404)
+                return
+            dashboard = page_fn()
+            html = self.server_ref._render_static(dashboard)
+            with sync_playwright() as p:
+                browser = p.chromium.launch()
+                page = browser.new_page()
+                page.set_content(html, wait_until="networkidle")
+                pdf_bytes = page.pdf(format="A4", print_background=True)
+                browser.close()
+            title = dashboard.title.replace(" ", "_").lower() or "dashboard"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/pdf")
+            self.send_header("Content-Disposition", f'attachment; filename="{title}.pdf"')
+            self.send_header("Content-Length", str(len(pdf_bytes)))
+            self.end_headers()
+            self.wfile.write(pdf_bytes)
+        except ImportError:
+            # Playwright not installed — return JSON with print trigger instruction
+            self._send_json({"fallback": "print", "message": "Install playwright for PDF: pip install playwright && playwright install chromium"})
         except Exception:
             self._send_json({"error": traceback.format_exc()}, status=500)
 
