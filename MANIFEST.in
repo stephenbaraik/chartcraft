@@ -1,0 +1,6 @@
+include README.md
+include LICENSE
+recursive-include chartcraft/static *.html
+recursive-include chartcraft/builder *.html *.js
+
+recursive-include docs *.md

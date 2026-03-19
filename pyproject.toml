@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chartcraft"
+version = "0.1.0"
+description = "Python-powered dashboards that rival Power BI & Tableau."
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "stephenbaraik", email = "stephenbaraik@gmail.com" }]
+requires-python = ">=3.11"
+dependencies = []
+
+keywords = [
+    "dashboard", "data-visualization", "charts", "analytics",
+    "real-time", "echarts", "builder", "reporting", "bi",
+    "server-sent-events", "streaming",
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage     = "https://github.com/stephenbaraik/chartcraft"
+Repository   = "https://github.com/stephenbaraik/chartcraft"
+Documentation = "https://github.com/stephenbaraik/chartcraft/tree/master/docs"
+"Bug Tracker" = "https://github.com/stephenbaraik/chartcraft/issues"
+Changelog    = "https://github.com/stephenbaraik/chartcraft/releases"
+
+[project.optional-dependencies]
+sql    = ["sqlalchemy>=2.0"]
+pg     = ["sqlalchemy>=2.0", "psycopg2-binary"]
+mysql  = ["sqlalchemy>=2.0", "pymysql"]
+mssql  = ["sqlalchemy>=2.0", "pyodbc"]
+pandas = ["pandas>=1.5"]
+pdf    = ["playwright>=1.40"]
+full   = [
+    "sqlalchemy>=2.0",
+    "psycopg2-binary",
+    "pymysql",
+    "pandas>=1.5",
+    "playwright>=1.40",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["chartcraft*"]
+
+[tool.setuptools.package-data]
+chartcraft = [
+    "static/*.html",
+    "static/*.css",
+    "static/*.js",
+    "builder/*.html",
+    "builder/components/*.js",
+    "templates/*.py",
+]
