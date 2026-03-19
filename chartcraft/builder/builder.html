@@ -4,166 +4,521 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{TITLE}} — Builder</title>
+<!-- ECharts must load before app script -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <style>
 {{THEME_CSS}}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--cc-font-body); background: var(--cc-bg); color: var(--cc-text); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+body {
+  font-family: var(--cc-font-body);
+  background: var(--cc-bg);
+  color: var(--cc-text);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
 
-/* Toolbar */
+/* ── Toolbar ── */
 #toolbar {
-  height: 48px; display: flex; align-items: center; gap: 8px;
-  padding: 0 16px; background: var(--cc-bg-card); border-bottom: 1px solid var(--cc-border);
+  height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  background: var(--cc-bg-card);
+  border-bottom: 1px solid var(--cc-border);
   flex-shrink: 0;
+  overflow-x: auto;
 }
-.cc-brand { font-weight: 700; font-size: 1rem; color: var(--cc-accent); margin-right: 8px; }
+#toolbar::-webkit-scrollbar { display: none; }
+.cc-brand { font-weight: 700; font-size: 0.95rem; color: var(--cc-accent); margin-right: 4px; flex-shrink: 0; }
 .tb-btn {
-  padding: 5px 12px; border-radius: var(--cc-radius-sm);
-  border: 1px solid var(--cc-border); background: var(--cc-bg-elevated);
-  color: var(--cc-text); font-size: 0.82rem; cursor: pointer; transition: border-color 0.15s;
+  padding: 4px 10px;
+  border-radius: var(--cc-radius-sm);
+  border: 1px solid var(--cc-border);
+  background: var(--cc-bg-elevated);
+  color: var(--cc-text);
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: border-color 0.12s, background 0.12s;
 }
-.tb-btn:hover { border-color: var(--cc-accent); }
+.tb-btn:hover:not(:disabled) { border-color: var(--cc-accent); color: var(--cc-accent); }
+.tb-btn.active { background: var(--cc-accent); border-color: var(--cc-accent); color: #fff; }
 .tb-btn.primary { background: var(--cc-accent); border-color: var(--cc-accent); color: #fff; }
-.tb-btn:disabled { opacity: 0.4; cursor: default; }
-.tb-sep { width: 1px; height: 24px; background: var(--cc-border); margin: 0 4px; }
-.tb-label { font-size: 0.78rem; color: var(--cc-text-muted); }
+.tb-btn:disabled { opacity: 0.35; cursor: default; }
+.tb-sep { width: 1px; height: 22px; background: var(--cc-border); margin: 0 2px; flex-shrink: 0; }
+.tb-label { font-size: 0.72rem; color: var(--cc-text-muted); white-space: nowrap; flex-shrink: 0; }
+.tb-spacer { flex: 1; }
 
-/* Layout */
+/* Alignment tool group — only visible when 2+ widgets selected */
+#align-tools { display: none; align-items: center; gap: 4px; }
+#align-tools.visible { display: flex; }
+.align-btn {
+  width: 28px; height: 28px;
+  border-radius: 4px;
+  border: 1px solid var(--cc-border);
+  background: var(--cc-bg-elevated);
+  color: var(--cc-text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.12s, color 0.12s;
+}
+.align-btn:hover { background: var(--cc-accent); color: #fff; border-color: var(--cc-accent); }
+.align-btn[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  top: 52px;
+  background: var(--cc-bg-elevated);
+  border: 1px solid var(--cc-border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  z-index: 500;
+  pointer-events: none;
+}
+
+/* ── Main layout ── */
 #main { display: flex; flex: 1; overflow: hidden; }
 
-/* Widget Library */
+/* ── Widget Library ── */
 #widget-lib {
-  width: 220px; flex-shrink: 0;
-  background: var(--cc-bg-card); border-right: 1px solid var(--cc-border);
-  overflow-y: auto; padding: 12px 8px;
+  width: 226px;
+  flex-shrink: 0;
+  background: var(--cc-bg-card);
+  border-right: 1px solid var(--cc-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
-.wl-section { margin-bottom: 16px; }
-.wl-title { font-size: 0.7rem; font-weight: 700; color: var(--cc-text-muted); text-transform: uppercase; letter-spacing: 0.08em; padding: 0 6px 6px; }
+#lib-search-wrap {
+  padding: 10px 8px 8px;
+  border-bottom: 1px solid var(--cc-border);
+}
+#lib-search {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: var(--cc-radius-sm);
+  border: 1px solid var(--cc-border);
+  background: var(--cc-bg-elevated);
+  color: var(--cc-text);
+  font-size: 0.82rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+#lib-search:focus { border-color: var(--cc-accent); }
+#lib-sections { flex: 1; overflow-y: auto; padding: 6px 4px; }
+.wl-section { margin-bottom: 2px; }
+.wl-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  cursor: pointer;
+  border-radius: var(--cc-radius-sm);
+  transition: background 0.1s;
+}
+.wl-section-header:hover { background: var(--cc-bg-elevated); }
+.wl-section-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--cc-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.wl-section-arrow { font-size: 0.65rem; color: var(--cc-text-muted); transition: transform 0.15s; }
+.wl-section.collapsed .wl-section-arrow { transform: rotate(-90deg); }
+.wl-items { overflow: hidden; }
+.wl-section.collapsed .wl-items { display: none; }
 .wl-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 7px 8px; border-radius: var(--cc-radius-sm);
-  cursor: grab; font-size: 0.83rem; color: var(--cc-text-secondary);
-  transition: background 0.1s, color 0.1s; user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--cc-radius-sm);
+  cursor: grab;
+  font-size: 0.82rem;
+  color: var(--cc-text-secondary);
+  transition: background 0.1s, color 0.1s;
+  user-select: none;
 }
 .wl-item:hover { background: var(--cc-bg-elevated); color: var(--cc-text); }
 .wl-item:active { cursor: grabbing; }
-.wl-icon { font-size: 1rem; width: 20px; text-align: center; }
+.wl-item.hidden { display: none; }
+.wl-icon { font-size: 0.95rem; width: 18px; text-align: center; flex-shrink: 0; }
 
-/* Canvas */
-#canvas-wrap {
-  flex: 1; overflow: auto; background: var(--cc-bg); position: relative;
+/* ── Center column ── */
+#center-col { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── Canvas area ── */
+#canvas-outer {
+  flex: 1;
+  overflow: auto;
+  background: var(--cc-bg);
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  padding: 24px;
+  position: relative;
 }
+/* Preview mode containers */
+#canvas-outer.mode-tablet  { background: #111; }
+#canvas-outer.mode-mobile  { background: #111; }
+#canvas-frame {
+  position: relative;
+  flex-shrink: 0;
+  width: 100%;
+  min-height: 760px;
+  transition: width 0.3s, max-width 0.3s;
+}
+#canvas-outer.mode-tablet  #canvas-frame { max-width: 768px; border: 8px solid #222; border-radius: 12px; overflow: hidden; }
+#canvas-outer.mode-mobile  #canvas-frame { max-width: 375px; border: 10px solid #222; border-radius: 18px; overflow: hidden; }
 #canvas {
-  min-width: 1200px; min-height: 800px; position: relative; padding: 20px;
+  width: 100%;
+  min-height: 760px;
+  background: var(--cc-bg);
+  position: relative;
+  overflow: hidden;
 }
-.cc-grid-overlay {
+/* Snap guides overlay */
+#snap-guides {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 50;
+}
+/* Marquee rect */
+#marquee {
+  position: absolute;
+  border: 1.5px solid var(--cc-accent);
+  background: rgba(99,102,241,0.07);
+  pointer-events: none;
+  z-index: 49;
+  display: none;
+}
+/* Grid dots overlay */
+#grid-dots {
   position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-  pointer-events: none; display: none;
+  pointer-events: none;
+  background-image: radial-gradient(circle, var(--cc-border) 1px, transparent 1px);
+  background-size: 20px 20px;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
-.cc-grid-overlay.visible { display: block; }
+#grid-dots.visible { opacity: 1; }
 
+/* ── Widget card ── */
 .cc-widget {
-  position: absolute; border: 2px solid transparent;
-  border-radius: var(--cc-radius); background: var(--cc-bg-card);
-  cursor: move; transition: border-color 0.15s, box-shadow 0.15s;
-  overflow: hidden; min-width: 120px; min-height: 80px;
+  position: absolute;
+  border: 2px solid transparent;
+  border-radius: var(--cc-radius);
+  background: var(--cc-bg-card);
+  cursor: move;
+  overflow: visible;
+  min-width: 100px;
+  min-height: 60px;
+  z-index: 1;
+  transition: box-shadow 0.15s;
 }
-.cc-widget:hover { border-color: var(--cc-accent); }
-.cc-widget.selected { border-color: var(--cc-accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.2); }
+.cc-widget:hover { border-color: rgba(99,102,241,0.5); }
+.cc-widget.selected {
+  border-color: var(--cc-accent);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.18);
+  z-index: 10;
+}
+.cc-widget.multi-selected {
+  border-color: var(--cc-accent-secondary);
+  box-shadow: 0 0 0 2px rgba(139,92,246,0.2);
+  z-index: 9;
+}
+.cc-widget-inner { overflow: hidden; border-radius: calc(var(--cc-radius) - 2px); height: 100%; }
 .cc-widget-header {
-  padding: 8px 10px; font-size: 0.8rem; font-weight: 600;
-  color: var(--cc-text-muted); border-bottom: 1px solid var(--cc-border);
-  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--cc-text-muted);
+  border-bottom: 1px solid var(--cc-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  background: var(--cc-bg-card);
 }
-.cc-widget-body { padding: 8px; height: calc(100% - 36px); }
-.cc-widget-type { font-size: 0.7rem; color: var(--cc-accent); }
-.cc-resize-handle {
-  position: absolute; background: var(--cc-accent); border-radius: 2px;
-  opacity: 0; transition: opacity 0.2s;
+.cc-widget-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--cc-text); font-size: 0.8rem; }
+.cc-widget-type { font-size: 0.65rem; color: var(--cc-accent); background: rgba(99,102,241,0.12); padding: 1px 6px; border-radius: 10px; flex-shrink: 0; }
+.cc-widget-del {
+  width: 18px; height: 18px;
+  border-radius: 3px; border: none;
+  background: transparent; color: var(--cc-text-muted);
+  font-size: 0.75rem; cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 0.15s, background 0.15s;
 }
-.cc-widget.selected .cc-resize-handle { opacity: 1; }
-.cc-resize-handle.se { bottom: -3px; right: -3px; width: 10px; height: 10px; cursor: se-resize; }
-.cc-resize-handle.sw { bottom: -3px; left: -3px; width: 10px; height: 10px; cursor: sw-resize; }
-.cc-resize-handle.ne { top: -3px; right: -3px; width: 10px; height: 10px; cursor: ne-resize; }
-.cc-resize-handle.nw { top: -3px; left: -3px; width: 10px; height: 10px; cursor: nw-resize; }
-.cc-resize-handle.n  { top: -3px; left: 50%; transform: translateX(-50%); width: 24px; height: 6px; cursor: n-resize; }
-.cc-resize-handle.s  { bottom: -3px; left: 50%; transform: translateX(-50%); width: 24px; height: 6px; cursor: s-resize; }
-.cc-resize-handle.e  { right: -3px; top: 50%; transform: translateY(-50%); width: 6px; height: 24px; cursor: e-resize; }
-.cc-resize-handle.w  { left: -3px; top: 50%; transform: translateY(-50%); width: 6px; height: 24px; cursor: w-resize; }
+.cc-widget:hover .cc-widget-del,
+.cc-widget.selected .cc-widget-del { opacity: 1; }
+.cc-widget-del:hover { background: rgba(239,68,68,0.15); color: var(--cc-danger); }
+.cc-widget-body {
+  padding: 8px;
+  height: calc(100% - 34px);
+  background: var(--cc-bg-card);
+  overflow: hidden;
+}
+/* Selection count badge (multi-select leader) */
+.cc-select-badge {
+  position: absolute;
+  top: -10px; right: -10px;
+  background: var(--cc-accent);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 20;
+  display: none;
+}
 
-.drop-target-hint {
-  position: absolute; border: 2px dashed var(--cc-accent);
-  border-radius: var(--cc-radius); background: rgba(99,102,241,0.06);
-  pointer-events: none; transition: all 0.1s;
+/* ── Resize handles ── */
+.rh {
+  position: absolute;
+  background: var(--cc-accent);
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 20;
 }
+.cc-widget.selected .rh,
+.cc-widget.multi-selected .rh { opacity: 1; }
+.rh.se { bottom: -4px; right: -4px; width: 10px; height: 10px; cursor: se-resize; border-radius: 50%; }
+.rh.sw { bottom: -4px; left:  -4px; width: 10px; height: 10px; cursor: sw-resize; border-radius: 50%; }
+.rh.ne { top:    -4px; right: -4px; width: 10px; height: 10px; cursor: ne-resize; border-radius: 50%; }
+.rh.nw { top:    -4px; left:  -4px; width: 10px; height: 10px; cursor: nw-resize; border-radius: 50%; }
+.rh.n  { top: -3px; left: 50%; transform: translateX(-50%); width: 28px; height: 6px; cursor: n-resize; }
+.rh.s  { bottom: -3px; left: 50%; transform: translateX(-50%); width: 28px; height: 6px; cursor: s-resize; }
+.rh.e  { right: -3px; top: 50%; transform: translateY(-50%); width: 6px; height: 28px; cursor: e-resize; }
+.rh.w  { left:  -3px; top: 50%; transform: translateY(-50%); width: 6px; height: 28px; cursor: w-resize; }
 
-/* Properties panel */
+/* ── Properties Panel ── */
 #props-panel {
-  width: 300px; flex-shrink: 0;
-  background: var(--cc-bg-card); border-left: 1px solid var(--cc-border);
-  display: flex; flex-direction: column; overflow: hidden;
+  width: 296px;
+  flex-shrink: 0;
+  background: var(--cc-bg-card);
+  border-left: 1px solid var(--cc-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
-#props-panel .pp-header {
-  padding: 12px 16px; border-bottom: 1px solid var(--cc-border);
-  font-size: 0.85rem; font-weight: 600; color: var(--cc-text);
+.pp-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--cc-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
-#props-panel .pp-tabs {
-  display: flex; border-bottom: 1px solid var(--cc-border);
+.pp-header-title { font-size: 0.83rem; font-weight: 600; color: var(--cc-text); }
+.pp-header-type { font-size: 0.7rem; color: var(--cc-accent); }
+.pp-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--cc-border);
+  flex-shrink: 0;
 }
-#props-panel .pp-tab {
-  flex: 1; padding: 8px 4px; text-align: center; font-size: 0.75rem;
-  font-weight: 600; color: var(--cc-text-muted); cursor: pointer;
-  border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s;
+.pp-tab {
+  flex: 1;
+  padding: 7px 2px;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--cc-text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.12s, border-color 0.12s;
 }
-#props-panel .pp-tab.active { color: var(--cc-accent); border-bottom-color: var(--cc-accent); }
-#props-panel .pp-body { flex: 1; overflow-y: auto; padding: 12px; }
-.pp-empty { color: var(--cc-text-muted); font-size: 0.83rem; text-align: center; padding: 40px 20px; }
-
-.pp-field { margin-bottom: 14px; }
-.pp-field label { display: block; font-size: 0.75rem; color: var(--cc-text-muted); margin-bottom: 4px; font-weight: 500; }
+.pp-tab:hover { color: var(--cc-text); }
+.pp-tab.active { color: var(--cc-accent); border-bottom-color: var(--cc-accent); }
+.pp-body { flex: 1; overflow-y: auto; padding: 12px; }
+.pp-empty { color: var(--cc-text-muted); font-size: 0.82rem; text-align: center; padding: 48px 20px; line-height: 1.6; }
+.pp-field { margin-bottom: 13px; }
+.pp-field label { display: block; font-size: 0.72rem; color: var(--cc-text-muted); margin-bottom: 4px; font-weight: 500; }
 .pp-field input[type="text"],
 .pp-field input[type="number"],
+.pp-field input[type="url"],
 .pp-field select,
 .pp-field textarea {
-  width: 100%; padding: 6px 8px; border-radius: var(--cc-radius-sm);
-  border: 1px solid var(--cc-border); background: var(--cc-bg-elevated);
-  color: var(--cc-text); font-size: 0.83rem; outline: none;
-  transition: border-color 0.15s;
+  width: 100%; padding: 6px 8px;
+  border-radius: var(--cc-radius-sm);
+  border: 1px solid var(--cc-border);
+  background: var(--cc-bg-elevated);
+  color: var(--cc-text); font-size: 0.82rem;
+  outline: none; transition: border-color 0.15s;
 }
-.pp-field input:focus, .pp-field select:focus, .pp-field textarea:focus { border-color: var(--cc-accent); }
-.pp-field textarea { resize: vertical; min-height: 70px; font-family: var(--cc-font-mono); font-size: 0.78rem; }
-.pp-color-row { display: flex; align-items: center; gap: 8px; }
+.pp-field input:focus,
+.pp-field select:focus,
+.pp-field textarea:focus { border-color: var(--cc-accent); }
+.pp-field textarea { resize: vertical; min-height: 72px; font-family: var(--cc-font-mono); font-size: 0.76rem; }
+.pp-row { display: flex; gap: 8px; }
+.pp-row .pp-field { flex: 1; }
+.pp-section-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--cc-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin: 16px 0 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--cc-border);
+}
+.pp-colors-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.pp-color-chip {
+  display: flex; align-items: center; gap: 4px;
+  background: var(--cc-bg-elevated);
+  border: 1px solid var(--cc-border);
+  border-radius: 6px;
+  padding: 3px 4px 3px 0;
+}
 .pp-color-swatch {
-  width: 28px; height: 28px; border-radius: 6px; border: 2px solid var(--cc-border);
-  cursor: pointer; flex-shrink: 0; transition: border-color 0.15s;
+  width: 24px; height: 24px; border-radius: 4px;
+  cursor: pointer; flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.1);
 }
-.pp-color-swatch:hover { border-color: var(--cc-accent); }
-
-/* Code preview */
-#code-preview {
-  height: 180px; border-top: 1px solid var(--cc-border);
-  background: var(--cc-bg); flex-shrink: 0;
-  display: flex; flex-direction: column;
+.pp-color-remove {
+  background: none; border: none; color: var(--cc-text-muted);
+  cursor: pointer; font-size: 0.75rem; padding: 0 2px; line-height: 1;
 }
-#code-preview .cp-header {
+.pp-color-remove:hover { color: var(--cc-danger); }
+.pp-add-color {
+  padding: 4px 8px;
+  border-radius: var(--cc-radius-sm);
+  border: 1px dashed var(--cc-border);
+  background: transparent;
+  color: var(--cc-text-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.pp-add-color:hover { border-color: var(--cc-accent); color: var(--cc-accent); }
+.pp-toggle-row {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 6px 12px; border-bottom: 1px solid var(--cc-border);
-  font-size: 0.75rem; color: var(--cc-text-muted);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--cc-grid);
+  margin-bottom: 4px;
 }
-#code-preview pre {
-  flex: 1; overflow: auto; padding: 10px 14px;
-  font-family: var(--cc-font-mono); font-size: 0.78rem;
-  color: var(--cc-text-secondary); white-space: pre; margin: 0;
+.pp-toggle-label { font-size: 0.8rem; color: var(--cc-text-secondary); }
+.pp-toggle {
+  width: 34px; height: 18px;
+  border-radius: 9px;
+  background: var(--cc-border);
+  border: none; cursor: pointer;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
 }
-.cp-collapse-btn { cursor: pointer; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--cc-border); background: transparent; color: var(--cc-text-muted); font-size: 0.75rem; }
+.pp-toggle.on { background: var(--cc-accent); }
+.pp-toggle::after {
+  content: "";
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+}
+.pp-toggle.on::after { transform: translateX(16px); }
+.pp-delete-btn {
+  width: 100%;
+  padding: 8px;
+  border-radius: var(--cc-radius-sm);
+  border: 1px solid rgba(239,68,68,0.3);
+  background: rgba(239,68,68,0.06);
+  color: var(--cc-danger);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-top: 8px;
+}
+.pp-delete-btn:hover { background: rgba(239,68,68,0.14); }
 
-/* Toast */
+/* ── Code Preview ── */
+#code-preview {
+  height: 190px;
+  border-top: 1px solid var(--cc-border);
+  background: var(--cc-bg);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  transition: height 0.2s;
+}
+#code-preview.collapsed { height: 34px; }
+.cp-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--cc-border);
+  font-size: 0.73rem; color: var(--cc-text-muted);
+  flex-shrink: 0; height: 34px;
+}
+.cp-actions { display: flex; gap: 5px; }
+.cp-btn {
+  padding: 2px 8px; border-radius: 4px;
+  border: 1px solid var(--cc-border);
+  background: transparent; color: var(--cc-text-muted);
+  font-size: 0.72rem; cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+.cp-btn:hover { border-color: var(--cc-accent); color: var(--cc-accent); }
+#code-output {
+  flex: 1; overflow: auto; padding: 10px 14px;
+  font-family: var(--cc-font-mono); font-size: 0.76rem;
+  color: var(--cc-text-secondary); white-space: pre; margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Context Menu ── */
+#ctx-menu {
+  position: fixed;
+  background: var(--cc-bg-card);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius);
+  padding: 5px;
+  min-width: 190px;
+  box-shadow: 0 8px 28px var(--cc-shadow);
+  z-index: 900;
+  display: none;
+}
+#ctx-menu.open { display: block; }
+.ctx-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--cc-radius-sm);
+  border: none; width: 100%;
+  background: transparent; color: var(--cc-text);
+  font-size: 0.83rem; cursor: pointer; text-align: left;
+  transition: background 0.1s;
+}
+.ctx-item:hover { background: var(--cc-bg-elevated); }
+.ctx-item.danger { color: var(--cc-danger); }
+.ctx-item.danger:hover { background: rgba(239,68,68,0.1); }
+.ctx-item .ctx-icon { width: 16px; text-align: center; font-size: 0.9rem; }
+.ctx-item .ctx-key { margin-left: auto; font-size: 0.7rem; color: var(--cc-text-muted); }
+.ctx-sep { height: 1px; background: var(--cc-border); margin: 4px 0; }
+
+/* ── Toast ── */
 #cc-toast {
-  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
   background: var(--cc-bg-elevated); border: 1px solid var(--cc-border);
   color: var(--cc-text); padding: 8px 20px; border-radius: 20px;
-  font-size: 0.83rem; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 999;
+  font-size: 0.82rem; opacity: 0; transition: opacity 0.2s;
+  pointer-events: none; z-index: 999; white-space: nowrap;
 }
 #cc-toast.visible { opacity: 1; }
+
+/* ── Scrollbars ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--cc-border); border-radius: 3px; }
 </style>
 </head>
 <body>
@@ -172,80 +527,67 @@ body { font-family: var(--cc-font-body); background: var(--cc-bg); color: var(--
 <div id="toolbar">
   <span class="cc-brand">◆ Builder</span>
   <div class="tb-sep"></div>
-  <button class="tb-btn" id="btn-undo" title="Ctrl+Z" disabled>↩ Undo</button>
-  <button class="tb-btn" id="btn-redo" title="Ctrl+Shift+Z" disabled>↪ Redo</button>
+  <button class="tb-btn" id="btn-undo" title="Ctrl+Z" disabled>&#8617; Undo</button>
+  <button class="tb-btn" id="btn-redo" title="Ctrl+Y" disabled>&#8618; Redo</button>
   <div class="tb-sep"></div>
-  <button class="tb-btn" id="btn-grid">⊞ Grid</button>
-  <span class="tb-label">Preview:</span>
-  <button class="tb-btn" id="btn-desktop">🖥</button>
-  <button class="tb-btn" id="btn-tablet">📱</button>
-  <button class="tb-btn" id="btn-mobile">📲</button>
-  <div class="tb-sep"></div>
-  <button class="tb-btn primary" id="btn-save">💾 Save</button>
-  <button class="tb-btn" id="btn-export">⤓ Export .py</button>
-  <a class="tb-btn" href="/" style="text-decoration:none">← View Dashboard</a>
-</div>
 
-<div id="main">
-  <!-- Widget Library -->
-  <div id="widget-lib">
-    <div class="wl-section">
-      <div class="wl-title">Charts</div>
-      <div class="wl-item" draggable="true" data-type="bar">     <span class="wl-icon">▊</span> Bar</div>
-      <div class="wl-item" draggable="true" data-type="line">    <span class="wl-icon">📈</span> Line</div>
-      <div class="wl-item" draggable="true" data-type="area">    <span class="wl-icon">▲</span> Area</div>
-      <div class="wl-item" draggable="true" data-type="pie">     <span class="wl-icon">◉</span> Pie</div>
-      <div class="wl-item" draggable="true" data-type="donut">   <span class="wl-icon">◎</span> Donut</div>
-      <div class="wl-item" draggable="true" data-type="scatter"> <span class="wl-icon">⁘</span> Scatter</div>
-      <div class="wl-item" draggable="true" data-type="heatmap"> <span class="wl-icon">▦</span> Heatmap</div>
-      <div class="wl-item" draggable="true" data-type="radar">   <span class="wl-icon">⬡</span> Radar</div>
-      <div class="wl-item" draggable="true" data-type="waterfall"><span class="wl-icon">↕</span> Waterfall</div>
-      <div class="wl-item" draggable="true" data-type="funnel">  <span class="wl-icon">▽</span> Funnel</div>
-      <div class="wl-item" draggable="true" data-type="treemap"> <span class="wl-icon">▣</span> Treemap</div>
-      <div class="wl-item" draggable="true" data-type="sankey">  <span class="wl-icon">⇌</span> Sankey</div>
-      <div class="wl-item" draggable="true" data-type="gauge">   <span class="wl-icon">◑</span> Gauge</div>
-      <div class="wl-item" draggable="true" data-type="candlestick"><span class="wl-icon">🕯</span> Candlestick</div>
-      <div class="wl-item" draggable="true" data-type="histogram"><span class="wl-icon">▐</span> Histogram</div>
-      <div class="wl-item" draggable="true" data-type="boxplot"> <span class="wl-icon">⊞</span> Box Plot</div>
-    </div>
-    <div class="wl-section">
-      <div class="wl-title">KPIs</div>
-      <div class="wl-item" draggable="true" data-type="kpi">    <span class="wl-icon">🔢</span> KPI Card</div>
-      <div class="wl-item" draggable="true" data-type="metric"> <span class="wl-icon">💯</span> Metric</div>
-    </div>
-    <div class="wl-section">
-      <div class="wl-title">Tables</div>
-      <div class="wl-item" draggable="true" data-type="table">  <span class="wl-icon">⊟</span> Data Table</div>
-    </div>
-    <div class="wl-section">
-      <div class="wl-title">Filters</div>
-      <div class="wl-item" draggable="true" data-type="filter-select">    <span class="wl-icon">▾</span> Dropdown</div>
-      <div class="wl-item" draggable="true" data-type="filter-date">      <span class="wl-icon">📅</span> Date Range</div>
-      <div class="wl-item" draggable="true" data-type="filter-slider">    <span class="wl-icon">⇔</span> Slider</div>
-      <div class="wl-item" draggable="true" data-type="filter-text">      <span class="wl-icon">🔍</span> Search</div>
-    </div>
-    <div class="wl-section">
-      <div class="wl-title">Layout</div>
-      <div class="wl-item" draggable="true" data-type="section_header"><span class="wl-icon">H</span> Section Header</div>
-      <div class="wl-item" draggable="true" data-type="text">           <span class="wl-icon">T</span> Text Block</div>
-      <div class="wl-item" draggable="true" data-type="divider">        <span class="wl-icon">—</span> Divider</div>
-      <div class="wl-item" draggable="true" data-type="spacer">         <span class="wl-icon">↕</span> Spacer</div>
-    </div>
+  <!-- Alignment tools — shown when 2+ widgets selected -->
+  <div id="align-tools">
+    <span class="tb-label">Align:</span>
+    <button class="align-btn" title="Align Left"      onclick="alignWidgets('left')">&#9612;</button>
+    <button class="align-btn" title="Align Center X"  onclick="alignWidgets('centerX')">&#9633;</button>
+    <button class="align-btn" title="Align Right"     onclick="alignWidgets('right')">&#9608;</button>
+    <button class="align-btn" title="Align Top"       onclick="alignWidgets('top')" style="transform:rotate(90deg)">&#9612;</button>
+    <button class="align-btn" title="Align Middle Y"  onclick="alignWidgets('middleY')" style="transform:rotate(90deg)">&#9633;</button>
+    <button class="align-btn" title="Align Bottom"    onclick="alignWidgets('bottom')" style="transform:rotate(90deg)">&#9608;</button>
+    <div class="tb-sep"></div>
+    <button class="align-btn" title="Distribute Horizontally" onclick="distributeWidgets('h')">&#8644;</button>
+    <button class="align-btn" title="Distribute Vertically"   onclick="distributeWidgets('v')">&#8645;</button>
+    <div class="tb-sep"></div>
   </div>
 
-  <!-- Canvas + Code preview -->
-  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
-    <div id="canvas-wrap">
-      <div id="canvas">
-        <svg class="cc-grid-overlay" id="grid-overlay"></svg>
+  <button class="tb-btn" id="btn-grid"  title="Toggle grid">&#8862; Grid</button>
+  <button class="tb-btn" id="btn-snap"  title="Toggle snap" class="active">&#9930; Snap</button>
+  <div class="tb-sep"></div>
+  <span class="tb-label">Preview:</span>
+  <button class="tb-btn" id="btn-desktop" title="Desktop (1440px)" onclick="setPreviewMode('desktop')">Desktop</button>
+  <button class="tb-btn" id="btn-tablet"  title="Tablet (768px)"   onclick="setPreviewMode('tablet')">Tablet</button>
+  <button class="tb-btn" id="btn-mobile"  title="Mobile (375px)"   onclick="setPreviewMode('mobile')">Mobile</button>
+  <div class="tb-spacer"></div>
+  <button class="tb-btn primary" id="btn-save"   onclick="saveLayout()">Save</button>
+  <button class="tb-btn"         id="btn-export" onclick="exportPy()">Export .py</button>
+  <a class="tb-btn" href="/" style="text-decoration:none">&#8592; View</a>
+</div>
+
+<!-- Main layout -->
+<div id="main">
+
+  <!-- Widget Library -->
+  <div id="widget-lib">
+    <div id="lib-search-wrap">
+      <input id="lib-search" placeholder="Search widgets..." autocomplete="off">
+    </div>
+    <div id="lib-sections"></div>
+  </div>
+
+  <!-- Canvas + Code Preview -->
+  <div id="center-col">
+    <div id="canvas-outer">
+      <div id="canvas-frame">
+        <div id="canvas">
+          <div id="grid-dots"></div>
+          <svg id="snap-guides"></svg>
+          <div id="marquee"></div>
+          <!-- widgets injected here -->
+        </div>
       </div>
     </div>
     <div id="code-preview">
       <div class="cp-header">
-        <span>Python Code</span>
-        <div style="display:flex;gap:6px">
-          <button class="cp-collapse-btn" id="btn-copy-code">Copy</button>
-          <button class="cp-collapse-btn" id="btn-collapse-code">▼</button>
+        <span>Python Code &mdash; live preview</span>
+        <div class="cp-actions">
+          <button class="cp-btn" id="btn-copy-code">Copy</button>
+          <button class="cp-btn" id="btn-collapse-code">&#9660;</button>
         </div>
       </div>
       <pre id="code-output">import chartcraft as cc
@@ -254,6 +596,7 @@ app = cc.App("Dashboard", theme="default")
 
 @app.page("/")
 def home():
+    """Overview"""
     return cc.Dashboard(title="Dashboard")
 
 if __name__ == "__main__":
@@ -262,520 +605,1117 @@ if __name__ == "__main__":
     </div>
   </div>
 
-  <!-- Properties panel -->
+  <!-- Properties Panel -->
   <div id="props-panel">
-    <div class="pp-header">Properties</div>
+    <div class="pp-header">
+      <span class="pp-header-title" id="pp-title">Properties</span>
+      <span class="pp-header-type" id="pp-type"></span>
+    </div>
     <div class="pp-tabs">
       <div class="pp-tab active" data-tab="style">Style</div>
       <div class="pp-tab" data-tab="data">Data</div>
       <div class="pp-tab" data-tab="layout">Layout</div>
       <div class="pp-tab" data-tab="anim">Anim</div>
+      <div class="pp-tab" data-tab="interact">Action</div>
     </div>
-    <div class="pp-body">
-      <div class="pp-empty">Select a widget to edit its properties.</div>
+    <div class="pp-body" id="pp-body">
+      <div class="pp-empty">Select a widget on the canvas to edit its properties.<br><br>Shift+click to multi-select. Right-click for more options.</div>
     </div>
   </div>
+</div>
+
+<!-- Context Menu -->
+<div id="ctx-menu">
+  <button class="ctx-item" onclick="ctxAction('front')">  <span class="ctx-icon">&#8679;</span> Bring to Front  <span class="ctx-key">&#8679;</span></button>
+  <button class="ctx-item" onclick="ctxAction('forward')"><span class="ctx-icon">&#8593;</span> Move Forward</button>
+  <button class="ctx-item" onclick="ctxAction('back')">   <span class="ctx-icon">&#8595;</span> Move Backward</button>
+  <button class="ctx-item" onclick="ctxAction('behind')"> <span class="ctx-icon">&#8681;</span> Send to Back   <span class="ctx-key">&#8681;</span></button>
+  <div class="ctx-sep"></div>
+  <button class="ctx-item" onclick="ctxAction('duplicate')"><span class="ctx-icon">&#9633;</span> Duplicate      <span class="ctx-key">Ctrl+D</span></button>
+  <button class="ctx-item danger" onclick="ctxAction('delete')"><span class="ctx-icon">&#10007;</span> Delete       <span class="ctx-key">Del</span></button>
 </div>
 
 <div id="cc-toast"></div>
 
 <script>
-// ── State ─────────────────────────────────────────────────────────────────
-let widgets    = [];      // [{ id, type, x, y, w, h, title, colors, options }]
-let selected   = null;    // selected widget id
-let history    = [];      // undo stack
-let future     = [];      // redo stack
-let gridOn     = false;
-let dragging   = null;    // { id, startX, startY, origX, origY }
-let resizing   = null;    // { id, handle, startX, startY, origW, origH, origX, origY }
-let dragNew    = null;    // { type, x, y } — dragging from library
+// ─── CONSTANTS ────────────────────────────────────────────────────────────
+const GRID       = 20;
+const SNAP_TH    = 8;
+const MIN_W      = 100;
+const MIN_H      = 60;
+const DEF_COLORS = ["#8B5CF6","#EC4899","#06B6D4","#10B981","#F59E0B","#EF4444","#A78BFA","#F472B6"];
 
-const GRID = 20;
-const SAMPLE_DATA = {
-  bar:      { labels: ["Q1","Q2","Q3","Q4"], datasets: [{ label: "Revenue", data: [100,160,140,220] }] },
-  line:     { labels: ["Jan","Feb","Mar","Apr","May"], datasets: [{ label: "Users", data: [500,620,580,750,900] }] },
-  area:     { labels: ["Jan","Feb","Mar","Apr","May"], datasets: [{ label: "Sales", data: [80,120,100,160,200] }] },
-  pie:      { labels: ["A","B","C","D"], datasets: [{ label: "Share", data: [40,25,20,15] }] },
-  donut:    { labels: ["A","B","C"], datasets: [{ label: "Share", data: [50,30,20] }] },
-  scatter:  { points: [{x:1,y:2},{x:3,y:5},{x:5,y:3},{x:7,y:8},{x:9,y:6}] },
+// ─── WIDGET REGISTRY ──────────────────────────────────────────────────────
+const WIDGET_DEFS = [
+  { type:"bar",          label:"Bar",            icon:"▊",  cat:"Charts",  dw:480, dh:320 },
+  { type:"line",         label:"Line",           icon:"📈", cat:"Charts",  dw:480, dh:300 },
+  { type:"area",         label:"Area",           icon:"▲",  cat:"Charts",  dw:480, dh:300 },
+  { type:"pie",          label:"Pie",            icon:"◉",  cat:"Charts",  dw:320, dh:320 },
+  { type:"donut",        label:"Donut",          icon:"◎",  cat:"Charts",  dw:320, dh:320 },
+  { type:"scatter",      label:"Scatter",        icon:"⁘",  cat:"Charts",  dw:380, dh:320 },
+  { type:"heatmap",      label:"Heatmap",        icon:"▦",  cat:"Charts",  dw:440, dh:320 },
+  { type:"radar",        label:"Radar",          icon:"⬡",  cat:"Charts",  dw:340, dh:320 },
+  { type:"waterfall",    label:"Waterfall",      icon:"↕",  cat:"Charts",  dw:480, dh:320 },
+  { type:"funnel",       label:"Funnel",         icon:"▽",  cat:"Charts",  dw:320, dh:360 },
+  { type:"treemap",      label:"Treemap",        icon:"▣",  cat:"Charts",  dw:440, dh:360 },
+  { type:"sankey",       label:"Sankey",         icon:"⇌",  cat:"Charts",  dw:520, dh:320 },
+  { type:"gauge",        label:"Gauge",          icon:"◑",  cat:"Charts",  dw:280, dh:280 },
+  { type:"candlestick",  label:"Candlestick",    icon:"🕯", cat:"Charts",  dw:560, dh:340 },
+  { type:"histogram",    label:"Histogram",      icon:"▐",  cat:"Charts",  dw:380, dh:300 },
+  { type:"boxplot",      label:"Box Plot",       icon:"⊞",  cat:"Charts",  dw:380, dh:300 },
+  { type:"kpi",          label:"KPI Card",       icon:"🔢", cat:"KPIs",    dw:220, dh:130 },
+  { type:"metric",       label:"Metric",         icon:"💯", cat:"KPIs",    dw:240, dh:170 },
+  { type:"table",        label:"Data Table",     icon:"⊟",  cat:"Tables",  dw:640, dh:380 },
+  { type:"filter-select",label:"Dropdown",       icon:"▾",  cat:"Filters", dw:200, dh:80  },
+  { type:"filter-multi", label:"Multi-Select",   icon:"☑",  cat:"Filters", dw:220, dh:100 },
+  { type:"filter-date",  label:"Date Range",     icon:"📅", cat:"Filters", dw:280, dh:80  },
+  { type:"filter-slider",label:"Slider",         icon:"⇔",  cat:"Filters", dw:280, dh:80  },
+  { type:"filter-text",  label:"Search Box",     icon:"🔍", cat:"Filters", dw:220, dh:80  },
+  { type:"section_header",label:"Section Header",icon:"H",  cat:"Layout",  dw:820, dh:72  },
+  { type:"text",         label:"Text Block",     icon:"T",  cat:"Layout",  dw:420, dh:100 },
+  { type:"divider",      label:"Divider",        icon:"—",  cat:"Layout",  dw:820, dh:28  },
+  { type:"spacer",       label:"Spacer",         icon:"↕",  cat:"Layout",  dw:820, dh:40  },
+];
+
+// ─── SAMPLE DATA ──────────────────────────────────────────────────────────
+const SAMPLE = {
+  bar:      { labels:["Q1","Q2","Q3","Q4"], datasets:[{label:"Revenue",data:[100,160,140,220]}] },
+  line:     { labels:["Jan","Feb","Mar","Apr","May"], datasets:[{label:"Users",data:[500,620,580,750,900]}] },
+  area:     { labels:["Jan","Feb","Mar","Apr","May"], datasets:[{label:"Sales",data:[80,120,100,160,200]}] },
+  pie:      { labels:["A","B","C","D"], datasets:[{label:"",data:[40,25,20,15]}] },
+  donut:    { labels:["A","B","C"], datasets:[{label:"",data:[50,30,20]}] },
+  scatter:  { points:[{x:1,y:2},{x:3,y:5},{x:5,y:3},{x:7,y:8},{x:9,y:6},{x:2,y:7},{x:6,y:1}] },
   heatmap:  { x_labels:["Mon","Tue","Wed","Thu","Fri"], y_labels:["AM","PM"], matrix:[[8,5,3,7,9],[4,6,8,2,5]] },
-  radar:    { labels:["Speed","Power","Accuracy","Stamina","Agility"], datasets:[{label:"Team A",data:[80,70,90,60,85]}] },
-  waterfall:{ labels:["Start","Revenue","COGS","Gross","OpEx","Net"], datasets:[{label:"",data:[0,200,-80,0,-60,0]}] },
-  funnel:   { labels:["Leads","Qualified","Proposal","Negotiation","Won"], datasets:[{label:"",data:[1000,600,300,150,80]}] },
+  radar:    { labels:["Speed","Power","Accuracy","Stamina","Agility"], datasets:[{label:"Team",data:[80,70,90,60,85]}] },
+  waterfall:{ labels:["Start","Sales","COGS","Gross","OpEx","Net"], datasets:[{label:"",data:[0,200,-80,0,-60,0]}] },
+  funnel:   { labels:["Leads","Qualified","Proposal","Won"], datasets:[{label:"",data:[1000,600,300,80]}] },
   treemap:  { name:"root", children:[{name:"A",value:40},{name:"B",value:30},{name:"C",value:20},{name:"D",value:10}] },
-  sankey:   { nodes:[{name:"A"},{name:"B"},{name:"C"}], links:[{source:"A",target:"B",value:10},{source:"A",target:"C",value:8}] },
-  gauge:    { value: 72, min: 0, max: 100 },
-  candlestick:{ ohlc:[{date:"2024-01",open:100,high:120,low:95,close:115},{date:"2024-02",open:115,high:130,low:110,close:125}] },
-  histogram:{ labels:["10","20","30","40","50"], datasets:[{label:"",data:[12,24,18,30,15]}] },
+  sankey:   { nodes:[{name:"A"},{name:"B"},{name:"C"},{name:"D"}], links:[{source:"A",target:"B",value:10},{source:"A",target:"C",value:8},{source:"B",target:"D",value:6}] },
+  gauge:    { value:72, min:0, max:100 },
+  candlestick:{ohlc:[{date:"W1",open:100,high:120,low:95,close:115},{date:"W2",open:115,high:130,low:110,close:125},{date:"W3",open:125,high:140,low:118,close:132}]},
+  histogram:{ labels:["10","20","30","40","50","60"], datasets:[{label:"",data:[12,24,18,30,15,8]}] },
   boxplot:  { labels:["A","B","C"], datasets:[{label:"",data:[[10,20,30,40,50],[15,25,35,45,55],[5,15,25,35,45]]}] },
   table:    { columns:["Name","Value","Change"], rows:[["Alpha",100,"+5%"],["Beta",85,"-2%"],["Gamma",120,"+8%"]] },
-  metric:   { value: "42,000", trend: 12.5 },
+  metric:   { value:"42,000", trend:12.5 },
   kpi:      null,
 };
 
-// ── History ───────────────────────────────────────────────────────────────
-function snapshot() { return JSON.parse(JSON.stringify(widgets)); }
-function push() { history.push(snapshot()); future = []; updateUndoRedo(); }
-function undo() {
-  if (!history.length) return;
-  future.push(snapshot());
-  widgets = history.pop();
-  selected = null;
-  repaint(); updateUndoRedo(); syncCode();
-}
-function redo() {
-  if (!future.length) return;
-  history.push(snapshot());
-  widgets = future.pop();
-  selected = null;
-  repaint(); updateUndoRedo(); syncCode();
-}
+// ─── STATE ────────────────────────────────────────────────────────────────
+let widgets     = [];
+let selectedIds = new Set();   // multi-select
+let history     = [];
+let future      = [];
+let gridOn      = false;
+let snapOn      = true;
+let propsTab    = "style";
+const _charts   = {};          // echarts instances by widget id
+
+// ─── HISTORY ──────────────────────────────────────────────────────────────
+function snap()  { return JSON.parse(JSON.stringify(widgets)); }
+function push()  { history.push(snap()); future = []; updateUndoRedo(); }
+function undo()  { if (!history.length) return; future.push(snap()); widgets = history.pop(); selectedIds.clear(); repaint(); updateUndoRedo(); renderProps(); syncCode(); }
+function redo()  { if (!future.length) return; history.push(snap()); widgets = future.pop(); selectedIds.clear(); repaint(); updateUndoRedo(); renderProps(); syncCode(); }
 function updateUndoRedo() {
   document.getElementById("btn-undo").disabled = !history.length;
   document.getElementById("btn-redo").disabled = !future.length;
 }
 
-// ── Canvas ────────────────────────────────────────────────────────────────
-const canvas = document.getElementById("canvas");
+// ─── WIDGET ACCESSORS ─────────────────────────────────────────────────────
+const uid  = () => Math.random().toString(36).slice(2, 8);
+const getW = id => widgets.find(w => w.id === id);
+const def  = type => WIDGET_DEFS.find(d => d.type === type) || { dw:380, dh:280 };
 
-function uid() { return Math.random().toString(36).slice(2,8); }
+// ─── SELECTION ────────────────────────────────────────────────────────────
+function select(id, multi = false) {
+  if (!multi) { selectedIds.clear(); }
+  if (id) {
+    if (multi && selectedIds.has(id)) selectedIds.delete(id);
+    else selectedIds.add(id);
+  }
+  updateSelectionUI();
+  renderProps();
+}
+function clearSel() { selectedIds.clear(); updateSelectionUI(); renderProps(); }
 
-function snap(v) { return gridOn ? Math.round(v / GRID) * GRID : v; }
+function updateSelectionUI() {
+  // Update widget border classes
+  document.querySelectorAll(".cc-widget").forEach(el => {
+    const id = el.dataset.id;
+    el.classList.remove("selected", "multi-selected");
+    if (selectedIds.size === 1 && selectedIds.has(id)) el.classList.add("selected");
+    else if (selectedIds.size > 1 && selectedIds.has(id)) el.classList.add("multi-selected");
+  });
+  // Show alignment tools when 2+
+  const alignTools = document.getElementById("align-tools");
+  alignTools.classList.toggle("visible", selectedIds.size >= 2);
+  // Update selection badge on last selected
+  document.querySelectorAll(".cc-select-badge").forEach(b => b.style.display = "none");
+  if (selectedIds.size > 1) {
+    const ids = [...selectedIds];
+    const leaderEl = document.getElementById("w-" + ids[ids.length - 1]);
+    if (leaderEl) {
+      const badge = leaderEl.querySelector(".cc-select-badge");
+      if (badge) { badge.style.display = "block"; badge.textContent = selectedIds.size + " selected"; }
+    }
+  }
+}
 
-function repaint() {
-  // Remove old widgets
-  canvas.querySelectorAll(".cc-widget, .drop-target-hint").forEach(el => el.remove());
-  widgets.forEach(w => {
-    const el = createWidgetEl(w);
-    canvas.appendChild(el);
-    renderWidgetPreview(w, el);
+// ─── Z-ORDER ──────────────────────────────────────────────────────────────
+function reindexZ() {
+  // Assign zIndex based on array order
+  widgets.forEach((w, i) => {
+    w.zIndex = i + 1;
+    const el = document.getElementById("w-" + w.id);
+    if (el) el.style.zIndex = w.zIndex;
   });
 }
 
+function bringToFront(id) {
+  push();
+  const idx = widgets.findIndex(w => w.id === id);
+  if (idx < 0) return;
+  widgets.push(widgets.splice(idx, 1)[0]);
+  reindexZ();
+  syncCode();
+}
+function sendToBack(id) {
+  push();
+  const idx = widgets.findIndex(w => w.id === id);
+  if (idx < 0) return;
+  widgets.unshift(widgets.splice(idx, 1)[0]);
+  reindexZ();
+  syncCode();
+}
+function moveForward(id) {
+  const idx = widgets.findIndex(w => w.id === id);
+  if (idx < 0 || idx === widgets.length - 1) return;
+  push();
+  [widgets[idx], widgets[idx+1]] = [widgets[idx+1], widgets[idx]];
+  reindexZ();
+  syncCode();
+}
+function moveBackward(id) {
+  const idx = widgets.findIndex(w => w.id === id);
+  if (idx <= 0) return;
+  push();
+  [widgets[idx], widgets[idx-1]] = [widgets[idx-1], widgets[idx]];
+  reindexZ();
+  syncCode();
+}
+
+// ─── ALIGNMENT ────────────────────────────────────────────────────────────
+function alignWidgets(dir) {
+  const sel = widgets.filter(w => selectedIds.has(w.id));
+  if (sel.length < 2) return;
+  push();
+  let ref;
+  switch (dir) {
+    case "left":    ref = Math.min(...sel.map(w => w.x)); break;
+    case "centerX": ref = (Math.min(...sel.map(w => w.x)) + Math.max(...sel.map(w => w.x + w.w))) / 2; break;
+    case "right":   ref = Math.max(...sel.map(w => w.x + w.w)); break;
+    case "top":     ref = Math.min(...sel.map(w => w.y)); break;
+    case "middleY": ref = (Math.min(...sel.map(w => w.y)) + Math.max(...sel.map(w => w.y + w.h))) / 2; break;
+    case "bottom":  ref = Math.max(...sel.map(w => w.y + w.h)); break;
+  }
+  widgets = widgets.map(w => {
+    if (!selectedIds.has(w.id)) return w;
+    let { x, y } = w;
+    switch (dir) {
+      case "left":    x = ref; break;
+      case "centerX": x = ref - w.w / 2; break;
+      case "right":   x = ref - w.w; break;
+      case "top":     y = ref; break;
+      case "middleY": y = ref - w.h / 2; break;
+      case "bottom":  y = ref - w.h; break;
+    }
+    return { ...w, x, y };
+  });
+  repaint();
+  syncCode();
+  toast("Aligned " + dir);
+}
+
+function distributeWidgets(dir) {
+  const sel = widgets.filter(w => selectedIds.has(w.id));
+  if (sel.length < 3) { toast("Select 3+ widgets to distribute"); return; }
+  push();
+  if (dir === "h") {
+    const sorted = [...sel].sort((a, b) => a.x - b.x);
+    const first = sorted[0].x;
+    const last  = sorted[sorted.length - 1].x + sorted[sorted.length - 1].w;
+    const totalW = sel.reduce((s, w) => s + w.w, 0);
+    const gap = (last - first - totalW) / (sel.length - 1);
+    let cx = first;
+    const pos = {};
+    sorted.forEach(w => { pos[w.id] = cx; cx += w.w + gap; });
+    widgets = widgets.map(w => selectedIds.has(w.id) ? { ...w, x: pos[w.id] } : w);
+  } else {
+    const sorted = [...sel].sort((a, b) => a.y - b.y);
+    const first = sorted[0].y;
+    const last  = sorted[sorted.length - 1].y + sorted[sorted.length - 1].h;
+    const totalH = sel.reduce((s, w) => s + w.h, 0);
+    const gap = (last - first - totalH) / (sel.length - 1);
+    let cy = first;
+    const pos = {};
+    sorted.forEach(w => { pos[w.id] = cy; cy += w.h + gap; });
+    widgets = widgets.map(w => selectedIds.has(w.id) ? { ...w, y: pos[w.id] } : w);
+  }
+  repaint();
+  syncCode();
+  toast("Distributed");
+}
+
+// ─── SNAP GUIDES ──────────────────────────────────────────────────────────
+let _snapGuides = [];
+
+function computeSnap(movingIds, candidateX, candidateY, cW, cH) {
+  if (!snapOn) return { x: candidateX, y: candidateY };
+  const others = widgets.filter(w => !movingIds.has(w.id));
+  let sx = candidateX, sy = candidateY;
+  const guides = [];
+  let snappedX = false, snappedY = false;
+
+  const myEdgesX = [candidateX, candidateX + cW / 2, candidateX + cW];
+  const myEdgesY = [candidateY, candidateY + cH / 2, candidateY + cH];
+
+  for (const o of others) {
+    const oxE = [o.x, o.x + o.w / 2, o.x + o.w];
+    const oyE = [o.y, o.y + o.h / 2, o.y + o.h];
+    if (!snappedX) {
+      for (const me of myEdgesX) {
+        for (const oe of oxE) {
+          if (Math.abs(me - oe) < SNAP_TH) {
+            sx = candidateX + (oe - me);
+            snappedX = true;
+            guides.push({ type:"v", x: oe, y1: Math.min(candidateY, o.y) - 20, y2: Math.max(candidateY + cH, o.y + o.h) + 20 });
+            break;
+          }
+        }
+        if (snappedX) break;
+      }
+    }
+    if (!snappedY) {
+      for (const me of myEdgesY) {
+        for (const oe of oyE) {
+          if (Math.abs(me - oe) < SNAP_TH) {
+            sy = candidateY + (oe - me);
+            snappedY = true;
+            guides.push({ type:"h", y: oe, x1: Math.min(candidateX, o.x) - 20, x2: Math.max(candidateX + cW, o.x + o.w) + 20 });
+            break;
+          }
+        }
+        if (snappedY) break;
+      }
+    }
+  }
+  _snapGuides = guides;
+  drawSnapGuides();
+  return { x: sx, y: sy };
+}
+
+function drawSnapGuides() {
+  const svg = document.getElementById("snap-guides");
+  const cH  = document.getElementById("canvas").offsetHeight;
+  const cW  = document.getElementById("canvas").offsetWidth;
+  svg.innerHTML = _snapGuides.map(g => {
+    if (g.type === "v") return `<line x1="${g.x}" y1="${Math.max(0,g.y1)}" x2="${g.x}" y2="${Math.min(cH,g.y2)}" stroke="#EF4444" stroke-width="1" stroke-dasharray="4 3" opacity="0.8"/>`;
+    return `<line x1="${Math.max(0,g.x1)}" y1="${g.y}" x2="${Math.min(cW,g.x2)}" y2="${g.y}" stroke="#06B6D4" stroke-width="1" stroke-dasharray="4 3" opacity="0.8"/>`;
+  }).join("");
+}
+
+function clearSnapGuides() { _snapGuides = []; drawSnapGuides(); }
+
+// ─── REPAINT ──────────────────────────────────────────────────────────────
+function repaint() {
+  const canvas = document.getElementById("canvas");
+  // Remove existing widgets
+  canvas.querySelectorAll(".cc-widget").forEach(el => {
+    const id = el.dataset.id;
+    if (_charts[id]) { try { _charts[id].dispose(); } catch(e) {} delete _charts[id]; }
+    el.remove();
+  });
+  // Re-append in z-order
+  widgets.forEach(w => canvas.appendChild(createWidgetEl(w)));
+  updateSelectionUI();
+}
+
+// ─── CREATE WIDGET ELEMENT ────────────────────────────────────────────────
 function createWidgetEl(w) {
   const el = document.createElement("div");
-  el.className = "cc-widget" + (w.id === selected ? " selected" : "");
-  el.id = "w-" + w.id;
+  el.className = "cc-widget";
+  el.id        = "w-" + w.id;
+  el.dataset.id = w.id;
   el.style.left   = w.x + "px";
   el.style.top    = w.y + "px";
   el.style.width  = w.w + "px";
   el.style.height = w.h + "px";
+  el.style.zIndex = w.zIndex || 1;
 
+  const d = def(w.type);
   el.innerHTML = `
-    <div class="cc-widget-header">
-      <span>${w.title || w.type}</span>
-      <span class="cc-widget-type">${w.type}</span>
+    <div class="cc-widget-inner">
+      <div class="cc-widget-header">
+        <span class="cc-widget-title">${w.title || d.label}</span>
+        <span class="cc-widget-type">${w.type}</span>
+        <button class="cc-widget-del" onclick="deleteWidget('${w.id}',event)" title="Delete">&#10007;</button>
+      </div>
+      <div class="cc-widget-body" id="wb-${w.id}"></div>
     </div>
-    <div class="cc-widget-body" id="wb-${w.id}"></div>
-    <div class="cc-resize-handle nw"></div>
-    <div class="cc-resize-handle ne"></div>
-    <div class="cc-resize-handle sw"></div>
-    <div class="cc-resize-handle se"></div>
-    <div class="cc-resize-handle n"></div>
-    <div class="cc-resize-handle s"></div>
-    <div class="cc-resize-handle e"></div>
-    <div class="cc-resize-handle w"></div>
+    <div class="cc-select-badge"></div>
+    <div class="rh nw" data-dir="nw"></div>
+    <div class="rh ne" data-dir="ne"></div>
+    <div class="rh sw" data-dir="sw"></div>
+    <div class="rh se" data-dir="se"></div>
+    <div class="rh n"  data-dir="n"></div>
+    <div class="rh s"  data-dir="s"></div>
+    <div class="rh e"  data-dir="e"></div>
+    <div class="rh w"  data-dir="w"></div>
   `;
 
-  // Pointer events for drag
-  el.addEventListener("pointerdown", e => {
-    if (e.target.classList.contains("cc-resize-handle")) return;
+  attachWidgetEvents(el, w);
+  requestAnimationFrame(() => renderPreview(w));
+  return el;
+}
+
+// ─── WIDGET EVENTS (move + resize) ────────────────────────────────────────
+let _drag = null;
+
+function attachWidgetEvents(el, w) {
+  // Select on click
+  el.addEventListener("click", e => {
+    if (e.target.classList.contains("rh") || e.target.classList.contains("cc-widget-del")) return;
+    e.stopPropagation();
+    select(w.id, e.shiftKey);
+  });
+
+  // Right-click → context menu
+  el.addEventListener("contextmenu", e => {
     e.preventDefault();
+    if (!selectedIds.has(w.id)) select(w.id, false);
+    openCtxMenu(e.clientX, e.clientY, w.id);
+  });
+
+  // Move — PointerEvents
+  el.addEventListener("pointerdown", e => {
+    if (e.target.classList.contains("rh") || e.target.classList.contains("cc-widget-del")) return;
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
     push();
-    select(w.id);
-    const rect = el.getBoundingClientRect();
-    const canvasRect = canvas.getBoundingClientRect();
-    dragging = { id: w.id, startX: e.clientX, startY: e.clientY, origX: w.x, origY: w.y };
+
+    if (!selectedIds.has(w.id)) select(w.id, e.shiftKey);
+
+    // Capture initial positions of all selected widgets
+    const origins = {};
+    selectedIds.forEach(id => { const g = getW(id); if (g) origins[id] = { x: g.x, y: g.y }; });
+
+    _drag = { type:"move", ids: new Set(selectedIds), startX: e.clientX, startY: e.clientY, origins };
     el.setPointerCapture(e.pointerId);
   });
 
   el.addEventListener("pointermove", e => {
-    if (!dragging || dragging.id !== w.id) return;
-    const dx = e.clientX - dragging.startX;
-    const dy = e.clientY - dragging.startY;
-    w.x = snap(Math.max(0, dragging.origX + dx));
-    w.y = snap(Math.max(0, dragging.origY + dy));
-    el.style.left = w.x + "px";
-    el.style.top  = w.y + "px";
+    if (!_drag || _drag.type !== "move" || !_drag.ids.has(w.id)) return;
+    const dx = e.clientX - _drag.startX;
+    const dy = e.clientY - _drag.startY;
+
+    // Compute snap for the primary widget (the one being dragged)
+    const orig = _drag.origins[w.id];
+    let tx = orig.x + dx;
+    let ty = orig.y + dy;
+    if (gridOn) { tx = Math.round(tx / GRID) * GRID; ty = Math.round(ty / GRID) * GRID; }
+    const snapped = computeSnap(_drag.ids, tx, ty, w.w, w.h);
+    const snapDX = snapped.x - tx;
+    const snapDY = snapped.y - ty;
+
+    // Move all selected widgets
+    _drag.ids.forEach(id => {
+      const wEl = document.getElementById("w-" + id);
+      const orig2 = _drag.origins[id];
+      if (!orig2 || !wEl) return;
+      let nx = Math.max(0, orig2.x + dx + snapDX);
+      let ny = Math.max(0, orig2.y + dy + snapDY);
+      if (gridOn) { nx = Math.round(nx / GRID) * GRID; ny = Math.round(ny / GRID) * GRID; }
+      wEl.style.left = nx + "px";
+      wEl.style.top  = ny + "px";
+    });
+  });
+
+  el.addEventListener("pointerup", e => {
+    if (!_drag || _drag.type !== "move" || !_drag.ids.has(w.id)) return;
+    // Commit positions to state
+    _drag.ids.forEach(id => {
+      const wEl = document.getElementById("w-" + id);
+      if (!wEl) return;
+      const wData = getW(id);
+      if (wData) {
+        wData.x = parseInt(wEl.style.left) || 0;
+        wData.y = parseInt(wEl.style.top)  || 0;
+      }
+    });
+    _drag = null;
+    clearSnapGuides();
     syncCode();
   });
 
-  el.addEventListener("pointerup", () => { dragging = null; });
-
-  // Resize handles
-  el.querySelectorAll(".cc-resize-handle").forEach(handle => {
-    const dir = [...handle.classList].find(c => c !== "cc-resize-handle");
-    handle.addEventListener("pointerdown", e => {
-      e.stopPropagation(); e.preventDefault();
+  // Resize — PointerEvents on handles
+  el.querySelectorAll(".rh").forEach(rh => {
+    rh.addEventListener("pointerdown", e => {
+      e.stopPropagation();
+      e.preventDefault();
       push();
-      resizing = { id: w.id, dir, startX: e.clientX, startY: e.clientY,
-                   origW: w.w, origH: w.h, origX: w.x, origY: w.y };
-      handle.setPointerCapture(e.pointerId);
+      const dir = rh.dataset.dir;
+      _drag = { type:"resize", id: w.id, dir, startX: e.clientX, startY: e.clientY, origW: w.w, origH: w.h, origX: w.x, origY: w.y };
+      rh.setPointerCapture(e.pointerId);
     });
-    handle.addEventListener("pointermove", e => {
-      if (!resizing || resizing.id !== w.id) return;
-      const dx = e.clientX - resizing.startX;
-      const dy = e.clientY - resizing.startY;
-      const dir = resizing.dir;
-      if (dir.includes("e")) w.w = snap(Math.max(120, resizing.origW + dx));
-      if (dir.includes("s")) w.h = snap(Math.max(80,  resizing.origH + dy));
-      if (dir.includes("w")) { w.w = snap(Math.max(120, resizing.origW - dx)); w.x = snap(resizing.origX + dx); }
-      if (dir.includes("n")) { w.h = snap(Math.max(80,  resizing.origH - dy)); w.y = snap(resizing.origY + dy); }
-      el.style.width  = w.w + "px";
-      el.style.height = w.h + "px";
-      el.style.left   = w.x + "px";
-      el.style.top    = w.y + "px";
+
+    rh.addEventListener("pointermove", e => {
+      if (!_drag || _drag.type !== "resize" || _drag.id !== w.id) return;
+      const dx = e.clientX - _drag.startX;
+      const dy = e.clientY - _drag.startY;
+      const d  = _drag.dir;
+      let { origW, origH, origX, origY } = _drag;
+      let nw = origW, nh = origH, nx = origX, ny = origY;
+
+      if (d.includes("e")) nw = Math.max(MIN_W, origW + dx);
+      if (d.includes("s")) nh = Math.max(MIN_H, origH + dy);
+      if (d.includes("w")) { nw = Math.max(MIN_W, origW - dx); nx = origX + origW - nw; }
+      if (d.includes("n")) { nh = Math.max(MIN_H, origH - dy); ny = origY + origH - nh; }
+
+      if (gridOn) { nw = Math.round(nw / GRID) * GRID; nh = Math.round(nh / GRID) * GRID; nx = Math.round(nx / GRID) * GRID; ny = Math.round(ny / GRID) * GRID; }
+
+      el.style.width  = nw + "px";
+      el.style.height = nh + "px";
+      el.style.left   = nx + "px";
+      el.style.top    = ny + "px";
+
+      // Resize chart
+      if (_charts[w.id]) _charts[w.id].resize();
+    });
+
+    rh.addEventListener("pointerup", e => {
+      if (!_drag || _drag.type !== "resize" || _drag.id !== w.id) return;
+      w.w = parseInt(el.style.width)  || w.w;
+      w.h = parseInt(el.style.height) || w.h;
+      w.x = parseInt(el.style.left)   || w.x;
+      w.y = parseInt(el.style.top)    || w.y;
+      // Re-render preview at new size
+      if (_charts[w.id]) { try { _charts[w.id].dispose(); } catch(e) {} delete _charts[w.id]; }
+      renderPreview(w);
+      _drag = null;
       syncCode();
     });
-    handle.addEventListener("pointerup", () => { resizing = null; });
   });
-
-  // Select on click
-  el.addEventListener("click", e => { e.stopPropagation(); select(w.id); });
-
-  return el;
 }
 
-let _echartsInstances = {};
+// ─── MARQUEE SELECTION ────────────────────────────────────────────────────
+let _marquee = null;
 
-function renderWidgetPreview(w, el) {
-  const body = el.querySelector(".cc-widget-body");
-  if (!body) return;
+document.getElementById("canvas").addEventListener("pointerdown", e => {
+  if (e.button !== 0) return;
+  if (e.target !== document.getElementById("canvas") &&
+      !e.target.classList.contains("cc-widget-body") &&
+      e.target.id !== "canvas" && e.target.id !== "grid-dots") return;
 
-  const type = w.type;
-  if (type === "kpi") {
-    body.innerHTML = `
-      <div style="padding:8px">
-        <div style="font-size:0.72rem;color:var(--cc-text-muted)">${w.title||"KPI"}</div>
-        <div style="font-size:1.4rem;font-weight:700;color:var(--cc-text)">${w.value||"—"}</div>
-        ${w.change !== undefined ? `<div style="font-size:0.75rem;color:var(--cc-success)">▲ ${w.change}%</div>` : ""}
-      </div>`;
-    return;
-  }
-  if (["divider","spacer","text","section_header"].includes(type)) {
-    body.innerHTML = `<div style="color:var(--cc-text-muted);font-size:0.78rem;padding:4px">${type}</div>`;
-    return;
-  }
+  if (!e.shiftKey) clearSel();
+  const rect = document.getElementById("canvas").getBoundingClientRect();
+  _marquee = { x1: e.clientX - rect.left, y1: e.clientY - rect.top, x2: e.clientX - rect.left, y2: e.clientY - rect.top };
+  document.getElementById("marquee").style.display = "block";
 
-  body.style.height = (w.h - 40) + "px";
-
-  if (_echartsInstances[w.id]) {
-    try { _echartsInstances[w.id].dispose(); } catch(e) {}
-  }
-  const eDiv = document.createElement("div");
-  eDiv.style.width = "100%";
-  eDiv.style.height = "100%";
-  body.innerHTML = "";
-  body.appendChild(eDiv);
-
-  try {
-    const chart = echarts.init(eDiv, "cc", { renderer: "canvas" });
-    _echartsInstances[w.id] = chart;
-    const data = SAMPLE_DATA[type] || SAMPLE_DATA["bar"];
-    const fakeSpec = { ...w, data, options: w.options || {} };
-    // Use a simplified option
-    chart.setOption(buildPreviewOption(type, data, w));
-  } catch(e) {
-    body.innerHTML = `<div style="color:var(--cc-text-muted);font-size:0.75rem;padding:4px">${type} preview</div>`;
-  }
-}
-
-function buildPreviewOption(type, data, w) {
-  const colors = w.colors || ["#6366F1","#EC4899","#22D3EE","#10B981","#F59E0B"];
-  const base = { animation: false, grid: { top: 10, bottom: 20, left: 30, right: 10, containLabel: true } };
-  const ax = { axisLine: { lineStyle: { color: "#3F3F46" } }, axisLabel: { color: "#71717A", fontSize: 9 }, splitLine: { lineStyle: { color: "#27272A" } } };
-
-  if (["bar","line","area","waterfall","histogram"].includes(type)) {
-    const labels = data.labels || [];
-    const vals = data.datasets?.[0]?.data || [];
-    return { ...base,
-      xAxis: { type: "category", data: labels, ...ax },
-      yAxis: { type: "value", ...ax },
-      series: [{ type: type === "line" ? "line" : type === "area" ? "line" : "bar", data: vals,
-                 smooth: true, areaStyle: type === "area" ? { opacity: 0.3 } : undefined,
-                 itemStyle: { color: colors[0], borderRadius: type === "bar" ? [3,3,0,0] : 0 } }] };
-  }
-  if (["pie","donut"].includes(type)) {
-    const pdata = (data.labels||[]).map((l,i) => ({ name: l, value: data.datasets?.[0]?.data[i]||0, itemStyle: { color: colors[i%colors.length] } }));
-    return { ...base, legend: undefined, tooltip: {},
-      series: [{ type: "pie", radius: type === "donut" ? ["40%","70%"] : "65%", data: pdata, label: { show: false } }] };
-  }
-  if (type === "gauge") {
-    return { series: [{ type: "gauge", data: [{ value: data.value || 72 }], animation: false,
-      axisLine: { lineStyle: { width: 8, color: [[0.6,"#10B981"],[0.8,"#F59E0B"],[1,"#EF4444"]] } },
-      pointer: { show: true }, axisTick: { show: false }, splitLine: { show: false },
-      axisLabel: { color: "#71717A", fontSize: 9 }, detail: { fontSize: 12, color: "#FAFAFA" } }] };
-  }
-  if (type === "scatter") {
-    return { ...base, xAxis: { type: "value", ...ax }, yAxis: { type: "value", ...ax },
-      series: [{ type: "scatter", data: (data.points||[]).map(p=>[p.x,p.y]), itemStyle: { color: colors[0], opacity: 0.8 } }] };
-  }
-  if (type === "radar") {
-    return { radar: { indicator: (data.labels||[]).map(l=>({name:l})), shape: "polygon",
-                      axisName: { color: "#71717A", fontSize: 8 }, splitLine: { lineStyle: { color: "#27272A" } } },
-      series: [{ type: "radar", data: [{ value: data.datasets?.[0]?.data||[] }],
-                 areaStyle: { opacity: 0.2 }, lineStyle: { color: colors[0] }, itemStyle: { color: colors[0] } }],
-      animation: false };
-  }
-  if (type === "funnel") {
-    const fdata = (data.labels||[]).map((l,i)=>({ name:l, value: data.datasets?.[0]?.data[i]||0, itemStyle: { color: colors[i%colors.length] } }));
-    return { series: [{ type: "funnel", data: fdata.sort((a,b)=>b.value-a.value), label: { show: false }, animation: false }] };
-  }
-  return { ...base,
-    xAxis: { type: "category", data: data.labels || [], ...ax },
-    yAxis: { type: "value", ...ax },
-    series: [{ type: "bar", data: data.datasets?.[0]?.data || [], itemStyle: { color: colors[0] } }] };
-}
-
-// ── Selection & Properties panel ──────────────────────────────────────────
-function select(id) {
-  selected = id;
-  document.querySelectorAll(".cc-widget").forEach(el => el.classList.remove("selected"));
-  if (id) document.getElementById("w-" + id)?.classList.add("selected");
-  renderProps();
-}
-
-canvas.addEventListener("click", () => { selected = null; renderProps(); document.querySelectorAll(".cc-widget").forEach(el => el.classList.remove("selected")); });
-
-function getWidget(id) { return widgets.find(w => w.id === id); }
-
-function renderProps() {
-  const body = document.querySelector("#props-panel .pp-body");
-  const w = getWidget(selected);
-  if (!w) { body.innerHTML = `<div class="pp-empty">Select a widget to edit its properties.</div>`; return; }
-
-  const tab = document.querySelector(".pp-tab.active")?.dataset.tab || "style";
-
-  if (tab === "style") {
-    body.innerHTML = `
-      <div class="pp-field"><label>Title</label>
-        <input type="text" value="${w.title||""}" oninput="propChange('title', this.value)"></div>
-      <div class="pp-field"><label>Primary Color</label>
-        <div class="pp-color-row">
-          <div class="pp-color-swatch" style="background:${w.colors?.[0]||'#6366F1'}"
-               onclick="openColorPicker(0, this)"></div>
-          <input type="text" value="${w.colors?.[0]||'#6366F1'}" oninput="propColorChange(0, this.value)">
-        </div>
-      </div>
-      <div class="pp-field"><label>Secondary Color</label>
-        <div class="pp-color-row">
-          <div class="pp-color-swatch" style="background:${w.colors?.[1]||'#EC4899'}"
-               onclick="openColorPicker(1, this)"></div>
-          <input type="text" value="${w.colors?.[1]||'#EC4899'}" oninput="propColorChange(1, this.value)">
-        </div>
-      </div>
-      <div class="pp-field"><label>Palette</label>
-        <select onchange="propChange('palette', this.value)">
-          <option value="">— custom colors —</option>
-          ${["aurora","sunset","ocean","forest","neon","pastel","categorical"].map(p =>
-            `<option value="${p}" ${w.palette===p?"selected":""}>${p}</option>`
-          ).join("")}
-        </select>
-      </div>
-      <div class="pp-field"><label>Height (px)</label>
-        <input type="number" value="${w.h||400}" min="80" max="1200"
-               oninput="propChange('h', parseInt(this.value)||400); document.getElementById('w-${w.id}').style.height=this.value+'px'">
-      </div>`;
-  } else if (tab === "data") {
-    body.innerHTML = `
-      <div class="pp-field"><label>Data (JSON or leave for sample)</label>
-        <textarea placeholder='{"labels":["A","B"],"datasets":[{"data":[10,20]}]}'
-          oninput="propChange('customData', this.value)">${w.customData||""}</textarea>
-      </div>
-      <div class="pp-field"><label>X Column</label>
-        <input type="text" value="${w.x||""}" oninput="propChange('x', this.value)" placeholder="column name"></div>
-      <div class="pp-field"><label>Y Column</label>
-        <input type="text" value="${w.y||""}" oninput="propChange('y', this.value)" placeholder="column name"></div>
-      <div class="pp-field"><label>Refresh (seconds, 0 = off)</label>
-        <input type="number" value="${w.refresh||0}" min="0" oninput="propChange('refresh', parseInt(this.value)||null)"></div>`;
-  } else if (tab === "layout") {
-    body.innerHTML = `
-      <div class="pp-field"><label>X</label>
-        <input type="number" value="${w.x}" oninput="propChange('x', parseInt(this.value)||0); document.getElementById('w-${w.id}').style.left=this.value+'px'"></div>
-      <div class="pp-field"><label>Y</label>
-        <input type="number" value="${w.y}" oninput="propChange('y', parseInt(this.value)||0); document.getElementById('w-${w.id}').style.top=this.value+'px'"></div>
-      <div class="pp-field"><label>Width</label>
-        <input type="number" value="${w.w}" oninput="propChange('w', parseInt(this.value)||200); document.getElementById('w-${w.id}').style.width=this.value+'px'"></div>
-      <div class="pp-field"><label>Height</label>
-        <input type="number" value="${w.h}" oninput="propChange('h', parseInt(this.value)||200); document.getElementById('w-${w.id}').style.height=this.value+'px'"></div>
-      <div class="pp-field"><label>Grid Col (0-11)</label>
-        <input type="number" value="${w.col||0}" min="0" max="11" oninput="propChange('col', parseInt(this.value)||0)"></div>
-      <div class="pp-field"><label>Colspan (1-12)</label>
-        <input type="number" value="${w.colspan||12}" min="1" max="12" oninput="propChange('colspan', parseInt(this.value)||12)"></div>`;
-  } else if (tab === "anim") {
-    body.innerHTML = `
-      <div class="pp-field"><label>Animation</label>
-        <select onchange="propChange('animate', this.value==='true')">
-          <option value="true" ${w.animate!==false?"selected":""}>On</option>
-          <option value="false" ${w.animate===false?"selected":""}>Off</option>
-        </select>
-      </div>
-      <div class="pp-field"><label>Duration (ms)</label>
-        <input type="number" value="${w.animate_duration||800}" min="100" max="3000"
-               oninput="propChange('animate_duration', parseInt(this.value)||800)"></div>`;
-  }
-}
-
-function propChange(key, val) {
-  const w = getWidget(selected);
-  if (!w) return;
-  w[key] = val;
-  syncCode();
-  // Re-render preview
-  const el = document.getElementById("w-" + w.id);
-  if (el) renderWidgetPreview(w, el);
-}
-
-function propColorChange(idx, val) {
-  const w = getWidget(selected);
-  if (!w) return;
-  if (!w.colors) w.colors = ["#6366F1","#EC4899","#22D3EE","#10B981"];
-  w.colors[idx] = val;
-  // Update swatch
-  document.querySelectorAll(".pp-color-swatch")[idx].style.background = val;
-  syncCode();
-  const el = document.getElementById("w-" + w.id);
-  if (el) renderWidgetPreview(w, el);
-}
-
-function openColorPicker(idx, swatchEl) {
-  const input = document.createElement("input");
-  input.type = "color";
-  const w = getWidget(selected);
-  input.value = w?.colors?.[idx] || "#6366F1";
-  input.oninput = () => propColorChange(idx, input.value);
-  input.click();
-}
-
-// ── Drag from library ─────────────────────────────────────────────────────
-document.querySelectorAll(".wl-item").forEach(item => {
-  item.addEventListener("dragstart", e => {
-    e.dataTransfer.setData("type", item.dataset.type);
-  });
+  document.getElementById("canvas").setPointerCapture(e.pointerId);
 });
 
-canvas.addEventListener("dragover", e => { e.preventDefault(); });
+document.getElementById("canvas").addEventListener("pointermove", e => {
+  if (!_marquee) return;
+  const rect = document.getElementById("canvas").getBoundingClientRect();
+  _marquee.x2 = e.clientX - rect.left;
+  _marquee.y2 = e.clientY - rect.top;
+  const mx = Math.min(_marquee.x1, _marquee.x2);
+  const my = Math.min(_marquee.y1, _marquee.y2);
+  const mw = Math.abs(_marquee.x2 - _marquee.x1);
+  const mh = Math.abs(_marquee.y2 - _marquee.y1);
+  const marqEl = document.getElementById("marquee");
+  marqEl.style.left   = mx + "px";
+  marqEl.style.top    = my + "px";
+  marqEl.style.width  = mw + "px";
+  marqEl.style.height = mh + "px";
+});
 
-canvas.addEventListener("drop", e => {
+document.getElementById("canvas").addEventListener("pointerup", e => {
+  if (!_marquee) return;
+  const mx1 = Math.min(_marquee.x1, _marquee.x2);
+  const my1 = Math.min(_marquee.y1, _marquee.y2);
+  const mx2 = Math.max(_marquee.x1, _marquee.x2);
+  const my2 = Math.max(_marquee.y1, _marquee.y2);
+  // Select widgets that intersect the marquee
+  if (mx2 - mx1 > 4 || my2 - my1 > 4) {
+    widgets.forEach(w => {
+      if (w.x < mx2 && w.x + w.w > mx1 && w.y < my2 && w.y + w.h > my1) {
+        selectedIds.add(w.id);
+      }
+    });
+    updateSelectionUI();
+    renderProps();
+  }
+  _marquee = null;
+  document.getElementById("marquee").style.display = "none";
+});
+
+// ─── ECHARTS PREVIEW ──────────────────────────────────────────────────────
+function renderPreview(w) {
+  const body = document.getElementById("wb-" + w.id);
+  if (!body) return;
+  const type = w.type;
+  const colors = w.colors || DEF_COLORS;
+
+  if (type === "kpi") {
+    body.innerHTML = `<div style="padding:8px">
+      <div style="font-size:0.7rem;color:var(--cc-text-muted);text-transform:uppercase;letter-spacing:.05em">${w.title||"KPI"}</div>
+      <div style="font-size:1.6rem;font-weight:800;color:var(--cc-text);font-family:var(--cc-font-mono)">${w.kpiValue||"—"}</div>
+      ${w.change !== undefined ? `<div style="font-size:0.75rem;color:var(--cc-success)">&#9650; ${w.change}%</div>` : ""}
+    </div>`;
+    return;
+  }
+  if (["divider","spacer","text","section_header","filter-select","filter-multi","filter-date","filter-slider","filter-text"].includes(type)) {
+    const icons = { divider:"—", spacer:"&#8597;", text:"T", section_header:"H", "filter-select":"&#9660;", "filter-multi":"&#9745;", "filter-date":"&#128197;", "filter-slider":"&#8660;", "filter-text":"&#128269;" };
+    body.innerHTML = `<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--cc-text-muted);font-size:1.2rem;gap:8px">
+      <span>${icons[type]||""}</span><span style="font-size:0.78rem">${type.replace("-"," ")}</span>
+    </div>`;
+    return;
+  }
+  if (type === "metric") {
+    body.innerHTML = `<div style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px">
+      <div style="font-size:2rem;font-weight:800;color:${colors[0]};font-family:var(--cc-font-mono)">${w.metricValue||"42,000"}</div>
+      <div style="font-size:0.75rem;color:var(--cc-success)">&#9650; ${w.trend||"12.5"}%</div>
+    </div>`;
+    return;
+  }
+  if (type === "table") {
+    const cols = ["Name","Value","Change"];
+    const rows = [["Alpha","100","+5%"],["Beta","85","-2%"],["Gamma","120","+8%"]];
+    body.innerHTML = `<div style="overflow:auto;height:100%;font-size:0.74rem">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr>${cols.map(c=>`<th style="padding:5px 8px;border-bottom:1px solid var(--cc-border);color:var(--cc-text-muted);text-align:left">${c}</th>`).join("")}</tr></thead>
+        <tbody>${rows.map(r=>`<tr>${r.map(v=>`<td style="padding:4px 8px;border-bottom:1px solid var(--cc-grid)">${v}</td>`).join("")}</tr>`).join("")}</tbody>
+      </table>
+    </div>`;
+    return;
+  }
+
+  // ECharts types
+  if (_charts[w.id]) { try { _charts[w.id].dispose(); } catch(e) {} }
+  body.style.height = (w.h - 34) + "px";
+  const div = document.createElement("div");
+  div.style.width = div.style.height = "100%";
+  body.innerHTML = "";
+  body.appendChild(div);
+
+  try {
+    const chart = echarts.init(div, null, { renderer:"canvas" });
+    _charts[w.id] = chart;
+    const ax = { axisLine:{lineStyle:{color:"#3F3F46"}}, axisLabel:{color:"#71717A",fontSize:9}, splitLine:{lineStyle:{color:"#27272A"}} };
+    const data = SAMPLE[type] || SAMPLE.bar;
+    const option = buildPreviewOption(type, data, colors, ax);
+    if (option) chart.setOption(option);
+    const ro = new ResizeObserver(() => chart.resize());
+    ro.observe(div);
+  } catch(e) {
+    body.innerHTML = `<div style="padding:8px;color:var(--cc-text-muted);font-size:0.75rem">${type}</div>`;
+  }
+}
+
+function buildPreviewOption(type, d, colors, ax) {
+  const base = { animation:false, grid:{top:10,bottom:20,left:8,right:8,containLabel:true} };
+  if (["bar","histogram"].includes(type)) return { ...base, xAxis:{type:"category",data:d.labels,...ax}, yAxis:{type:"value",...ax},
+    series:[{type:"bar",data:d.datasets[0]?.data||[],itemStyle:{color:colors[0],borderRadius:[3,3,0,0]}}] };
+  if (type==="line") return { ...base, xAxis:{type:"category",data:d.labels,...ax}, yAxis:{type:"value",...ax},
+    series:[{type:"line",data:d.datasets[0]?.data||[],smooth:true,showSymbol:false,lineStyle:{color:colors[0]},itemStyle:{color:colors[0]}}] };
+  if (type==="area") return { ...base, xAxis:{type:"category",data:d.labels,...ax}, yAxis:{type:"value",...ax},
+    series:[{type:"line",data:d.datasets[0]?.data||[],smooth:true,showSymbol:false,lineStyle:{color:colors[0]},itemStyle:{color:colors[0]},
+      areaStyle:{color:{type:"linear",x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:colors[0]+"AA"},{offset:1,color:colors[0]+"11"}]}}}] };
+  if (["pie","donut"].includes(type)) {
+    const pdata = (d.labels||[]).map((l,i)=>({name:l,value:d.datasets[0]?.data[i]||0,itemStyle:{color:colors[i%colors.length]}}));
+    return { series:[{type:"pie",radius:type==="donut"?["38%","68%"]:"65%",data:pdata,label:{show:false},animation:false}] };
+  }
+  if (type==="scatter") return { ...base, xAxis:{type:"value",...ax}, yAxis:{type:"value",...ax},
+    series:[{type:"scatter",data:(d.points||[]).map(p=>[p.x,p.y]),itemStyle:{color:colors[0],opacity:0.8},symbolSize:7}] };
+  if (type==="radar") return { radar:{indicator:(d.labels||[]).map(l=>({name:l})),shape:"polygon",axisName:{color:"#71717A",fontSize:8},splitLine:{lineStyle:{color:"#27272A"}}},
+    series:[{type:"radar",data:[{value:d.datasets[0]?.data||[]}],areaStyle:{opacity:0.2},lineStyle:{color:colors[0]},itemStyle:{color:colors[0]}}],animation:false };
+  if (type==="gauge") return { series:[{type:"gauge",data:[{value:d.value||72}],animation:false,
+    axisLine:{lineStyle:{width:8,color:[[0.6,"#10B981"],[0.8,"#F59E0B"],[1,"#EF4444"]]}},
+    pointer:{show:true},axisTick:{show:false},splitLine:{show:false},axisLabel:{color:"#71717A",fontSize:9},detail:{fontSize:12,color:"#FAFAFA"}}] };
+  if (type==="funnel") {
+    const fd=(d.labels||[]).map((l,i)=>({name:l,value:d.datasets[0]?.data[i]||0,itemStyle:{color:colors[i%colors.length]}})).sort((a,b)=>b.value-a.value);
+    return { series:[{type:"funnel",data:fd,label:{show:false},animation:false,left:"5%",width:"90%",top:10,bottom:10,gap:2}] };
+  }
+  if (type==="treemap") return { series:[{type:"treemap",data:[d],animation:false,label:{color:"#fff",fontSize:9},breadcrumb:{show:false}}] };
+  if (type==="sankey") return { series:[{type:"sankey",data:d.nodes,links:d.links,animation:false,label:{color:"#FAFAFA",fontSize:9},lineStyle:{color:"gradient",opacity:0.35}}] };
+  if (type==="waterfall") {
+    const vals=d.datasets[0]?.data||[]; let run=0;
+    const helpers=[],bars=[];
+    vals.forEach((v,i)=>{ helpers.push(v>=0?run:run+v); run+=v; bars.push({value:Math.abs(v),itemStyle:{color:v>=0?colors[0]:(colors[3]||"#EF4444")}}); });
+    return { ...base, xAxis:{type:"category",data:d.labels,...ax}, yAxis:{type:"value",...ax},
+      series:[{type:"bar",stack:"w",data:helpers,itemStyle:{color:"transparent"}},{type:"bar",stack:"w",data:bars}] };
+  }
+  if (type==="heatmap") {
+    const mat=[];(d.matrix||[]).forEach((row,yi)=>row.forEach((val,xi)=>mat.push([xi,yi,val])));
+    return { xAxis:{type:"category",data:d.x_labels,...ax}, yAxis:{type:"category",data:d.y_labels,...ax},
+      visualMap:{min:0,max:10,show:false,inRange:{color:["#313695","#abd9e9","#ffffbf","#a50026"]}},
+      series:[{type:"heatmap",data:mat,label:{show:false}}],animation:false };
+  }
+  if (type==="candlestick") {
+    const ohlc=d.ohlc||[];
+    return { ...base, xAxis:{type:"category",data:ohlc.map(r=>r.date),...ax}, yAxis:{type:"value",scale:true,...ax},
+      series:[{type:"candlestick",data:ohlc.map(r=>[r.open,r.close,r.low,r.high]),itemStyle:{color:colors[0],color0:(colors[3]||"#EF4444"),borderColor:colors[0],borderColor0:(colors[3]||"#EF4444")}}] };
+  }
+  return null;
+}
+
+// ─── DROP FROM LIBRARY ────────────────────────────────────────────────────
+const canvasEl = document.getElementById("canvas");
+
+document.querySelectorAll(".wl-item").forEach(item => {
+  item.addEventListener("dragstart", e => { e.dataTransfer.setData("wtype", item.dataset.type); });
+});
+canvasEl.addEventListener("dragover", e => e.preventDefault());
+canvasEl.addEventListener("drop", e => {
   e.preventDefault();
-  const type = e.dataTransfer.getData("type");
+  const type = e.dataTransfer.getData("wtype");
   if (!type) return;
-  const rect = canvas.getBoundingClientRect();
-  const x = snap(e.clientX - rect.left - 100);
-  const y = snap(e.clientY - rect.top - 60);
-  push();
-  addWidget(type, x, y);
+  const rect = canvasEl.getBoundingClientRect();
+  const d    = def(type);
+  let x = e.clientX - rect.left - d.dw / 2;
+  let y = e.clientY - rect.top  - d.dh / 2;
+  if (gridOn) { x = Math.round(x / GRID) * GRID; y = Math.round(y / GRID) * GRID; }
+  addWidget(type, Math.max(0, x), Math.max(0, y));
 });
 
 function addWidget(type, x, y) {
-  const defaults = {
-    bar: { w: 480, h: 300 }, line: { w: 480, h: 300 }, area: { w: 480, h: 280 },
-    pie: { w: 320, h: 300 }, donut: { w: 320, h: 300 }, scatter: { w: 380, h: 300 },
-    heatmap: { w: 440, h: 300 }, radar: { w: 340, h: 300 }, waterfall: { w: 480, h: 300 },
-    funnel: { w: 320, h: 340 }, treemap: { w: 440, h: 340 }, sankey: { w: 500, h: 300 },
-    gauge: { w: 280, h: 260 }, candlestick: { w: 560, h: 320 }, histogram: { w: 380, h: 280 },
-    boxplot: { w: 380, h: 280 }, table: { w: 600, h: 360 }, metric: { w: 240, h: 160 },
-    kpi: { w: 220, h: 130 }, section_header: { w: 800, h: 70 },
-    text: { w: 400, h: 100 }, divider: { w: 800, h: 30 }, spacer: { w: 800, h: 40 },
-    "filter-select": { w: 200, h: 80 }, "filter-date": { w: 280, h: 80 },
-    "filter-slider": { w: 280, h: 80 }, "filter-text": { w: 220, h: 80 },
-  };
-  const sz = defaults[type] || { w: 400, h: 300 };
-  const w = {
-    id: uid(), type, title: type.charAt(0).toUpperCase() + type.slice(1),
-    x: Math.max(0, x), y: Math.max(0, y),
-    w: sz.w, h: sz.h, col: 0, colspan: 12,
-    colors: ["#6366F1","#EC4899","#22D3EE","#10B981","#F59E0B"],
-    animate: true, animate_duration: 800,
-  };
+  const d = def(type);
+  push();
+  const w = { id: uid(), type, x, y, w: d.dw, h: d.dh, zIndex: widgets.length + 1,
+    title: d.label, colors: [...DEF_COLORS],
+    animate: true, animate_duration: 800, col: 0, colspan: 12, refresh: null,
+    click_action: null, click_target: "", tooltip: true };
   widgets.push(w);
-  repaint();
-  select(w.id);
+  canvasEl.appendChild(createWidgetEl(w));
+  select(w.id, false);
   syncCode();
-  toast("Added " + type);
+  toast("Added " + d.label);
 }
 
-// ── Code sync ─────────────────────────────────────────────────────────────
-function syncCode() {
-  const state = {
-    title: "Dashboard",
-    theme: "default",
-    widgets: widgets.map(w => {
-      const canvasW = canvas.offsetWidth || 1200;
-      return {
-        ...w,
-        col: Math.max(0, Math.min(11, Math.round(w.x / canvasW * 12))),
-        colspan: Math.max(1, Math.min(12, Math.round(w.w / canvasW * 12))),
-        height: w.h,
-      };
-    }),
+// ─── DELETE WIDGET ────────────────────────────────────────────────────────
+function deleteWidget(id, e) {
+  if (e) e.stopPropagation();
+  push();
+  if (_charts[id]) { try { _charts[id].dispose(); } catch(e) {} delete _charts[id]; }
+  document.getElementById("w-" + id)?.remove();
+  widgets = widgets.filter(w => w.id !== id);
+  selectedIds.delete(id);
+  updateSelectionUI();
+  renderProps();
+  syncCode();
+}
+
+function deleteSelected() {
+  if (!selectedIds.size) return;
+  push();
+  [...selectedIds].forEach(id => {
+    if (_charts[id]) { try { _charts[id].dispose(); } catch(e) {} delete _charts[id]; }
+    document.getElementById("w-" + id)?.remove();
+    widgets = widgets.filter(w => w.id !== id);
+  });
+  selectedIds.clear();
+  updateSelectionUI();
+  renderProps();
+  syncCode();
+}
+
+function duplicateSelected() {
+  if (!selectedIds.size) return;
+  push();
+  const newIds = new Set();
+  [...selectedIds].forEach(id => {
+    const w = getW(id);
+    if (!w) return;
+    const nw = JSON.parse(JSON.stringify(w));
+    nw.id = uid();
+    nw.x += 20; nw.y += 20;
+    nw.zIndex = widgets.length + 1;
+    widgets.push(nw);
+    canvasEl.appendChild(createWidgetEl(nw));
+    newIds.add(nw.id);
+  });
+  selectedIds.clear();
+  newIds.forEach(id => selectedIds.add(id));
+  updateSelectionUI();
+  renderProps();
+  syncCode();
+  toast("Duplicated");
+}
+
+// ─── CONTEXT MENU ─────────────────────────────────────────────────────────
+let _ctxId = null;
+
+function openCtxMenu(x, y, id) {
+  _ctxId = id;
+  const menu = document.getElementById("ctx-menu");
+  menu.style.left = x + "px";
+  menu.style.top  = y + "px";
+  menu.classList.add("open");
+  // Adjust if off screen
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if (r.right  > window.innerWidth)  menu.style.left = (x - r.width)  + "px";
+    if (r.bottom > window.innerHeight) menu.style.top  = (y - r.height) + "px";
+  });
+}
+
+function closeCtxMenu() { document.getElementById("ctx-menu").classList.remove("open"); }
+
+function ctxAction(action) {
+  closeCtxMenu();
+  const id = _ctxId;
+  if (!id) return;
+  switch (action) {
+    case "front":     bringToFront(id); break;
+    case "forward":   moveForward(id); break;
+    case "back":      moveBackward(id); break;
+    case "behind":    sendToBack(id); break;
+    case "duplicate": if (!selectedIds.has(id)) select(id); duplicateSelected(); break;
+    case "delete":    deleteWidget(id); break;
+  }
+}
+
+document.addEventListener("click", e => {
+  if (!e.target.closest("#ctx-menu")) closeCtxMenu();
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeCtxMenu();
+});
+
+// ─── PROPERTIES PANEL ─────────────────────────────────────────────────────
+function renderProps() {
+  const body = document.getElementById("pp-body");
+  const titleEl = document.getElementById("pp-title");
+  const typeEl  = document.getElementById("pp-type");
+
+  if (selectedIds.size === 0) {
+    titleEl.textContent = "Properties";
+    typeEl.textContent  = "";
+    body.innerHTML = `<div class="pp-empty">Select a widget on the canvas to edit its properties.<br><br>Shift+click to multi-select.<br>Right-click for more options.</div>`;
+    return;
+  }
+
+  if (selectedIds.size > 1) {
+    titleEl.textContent = selectedIds.size + " widgets";
+    typeEl.textContent  = "multi";
+    body.innerHTML = `<div style="padding:8px 0">
+      <p style="font-size:0.82rem;color:var(--cc-text-secondary);margin-bottom:12px">${selectedIds.size} widgets selected</p>
+      <div class="pp-section-label">Alignment</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px">
+        <button class="pp-delete-btn" style="margin:0;color:var(--cc-text-secondary);border-color:var(--cc-border)" onclick="alignWidgets('left')">Align Left</button>
+        <button class="pp-delete-btn" style="margin:0;color:var(--cc-text-secondary);border-color:var(--cc-border)" onclick="alignWidgets('centerX')">Center X</button>
+        <button class="pp-delete-btn" style="margin:0;color:var(--cc-text-secondary);border-color:var(--cc-border)" onclick="alignWidgets('right')">Align Right</button>
+        <button class="pp-delete-btn" style="margin:0;color:var(--cc-text-secondary);border-color:var(--cc-border)" onclick="alignWidgets('top')">Align Top</button>
+        <button class="pp-delete-btn" style="margin:0;color:var(--cc-text-secondary);border-color:var(--cc-border)" onclick="alignWidgets('middleY')">Middle Y</button>
+        <button class="pp-delete-btn" style="margin:0;color:var(--cc-text-secondary);border-color:var(--cc-border)" onclick="alignWidgets('bottom')">Align Bottom</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <button class="pp-delete-btn" style="margin:0;color:var(--cc-text-secondary);border-color:var(--cc-border)" onclick="distributeWidgets('h')">Distribute H</button>
+        <button class="pp-delete-btn" style="margin:0;color:var(--cc-text-secondary);border-color:var(--cc-border)" onclick="distributeWidgets('v')">Distribute V</button>
+      </div>
+      <button class="pp-delete-btn" onclick="deleteSelected()">Delete All Selected</button>
+    </div>`;
+    return;
+  }
+
+  const id = [...selectedIds][0];
+  const w  = getW(id);
+  if (!w) return;
+  const d  = def(w.type);
+
+  titleEl.textContent = w.title || d.label;
+  typeEl.textContent  = w.type;
+
+  const tab = propsTab;
+
+  if (tab === "style") {
+    const colorChips = (w.colors || DEF_COLORS).map((c, i) => `
+      <div class="pp-color-chip">
+        <div class="pp-color-swatch" style="background:${c}" onclick="openColorPicker(${i}, '${id}', this)"></div>
+        <button class="pp-color-remove" onclick="removeColor(${i},'${id}')">&#10005;</button>
+      </div>`).join("");
+
+    body.innerHTML = `
+      <div class="pp-field"><label>Title</label>
+        <input type="text" value="${w.title||""}" oninput="propSet('${id}','title',this.value)"></div>
+      <div class="pp-field"><label>Subtitle</label>
+        <input type="text" value="${w.subtitle||""}" oninput="propSet('${id}','subtitle',this.value)"></div>
+      <div class="pp-section-label">Colors</div>
+      <div class="pp-colors-list">${colorChips}
+        <button class="pp-add-color" onclick="addColor('${id}')">+ Add</button>
+      </div>
+      <div class="pp-field"><label>Palette (overrides colors)</label>
+        <select onchange="propSet('${id}','palette',this.value)">
+          <option value="">— custom —</option>
+          ${["aurora","sunset","ocean","forest","neon","pastel","categorical","midnight","corporate","earth","retro"].map(p =>
+            `<option value="${p}" ${w.palette===p?"selected":""}>${p}</option>`).join("")}
+        </select>
+      </div>
+      <div class="pp-field"><label>Height (px)</label>
+        <input type="number" value="${w.h}" min="60" max="1200" oninput="propSetNum('${id}','h',this.value);document.getElementById('w-${id}').style.height=this.value+'px'"></div>
+      <button class="pp-delete-btn" onclick="deleteWidget('${id}')">Delete Widget</button>`;
+  }
+
+  else if (tab === "data") {
+    body.innerHTML = `
+      <div class="pp-field"><label>X Column / Category</label>
+        <input type="text" value="${w.x_col||""}" placeholder="column name" oninput="propSet('${id}','x_col',this.value)"></div>
+      <div class="pp-field"><label>Y Column / Value</label>
+        <input type="text" value="${w.y_col||""}" placeholder="column name or comma-separated" oninput="propSet('${id}','y_col',this.value)"></div>
+      <div class="pp-field"><label>Custom data (JSON)</label>
+        <textarea placeholder='{"labels":["A","B"],"datasets":[{"data":[10,20]}]}'
+          oninput="propSet('${id}','customData',this.value)">${w.customData||""}</textarea></div>
+      <div class="pp-field"><label>Refresh interval (seconds, 0 = off)</label>
+        <input type="number" value="${w.refresh||0}" min="0" oninput="propSet('${id}','refresh',parseInt(this.value)||null)"></div>
+      <div class="pp-field"><label>Data source label</label>
+        <input type="text" value="${w.dataLabel||""}" placeholder="e.g. Sales DB" oninput="propSet('${id}','dataLabel',this.value)"></div>`;
+  }
+
+  else if (tab === "layout") {
+    body.innerHTML = `
+      <div class="pp-section-label">Position &amp; Size</div>
+      <div class="pp-row">
+        <div class="pp-field"><label>X</label>
+          <input type="number" value="${w.x}" oninput="propSetNum('${id}','x',this.value);document.getElementById('w-${id}').style.left=this.value+'px'"></div>
+        <div class="pp-field"><label>Y</label>
+          <input type="number" value="${w.y}" oninput="propSetNum('${id}','y',this.value);document.getElementById('w-${id}').style.top=this.value+'px'"></div>
+      </div>
+      <div class="pp-row">
+        <div class="pp-field"><label>Width</label>
+          <input type="number" value="${w.w}" min="${MIN_W}" oninput="propSetNum('${id}','w',this.value);document.getElementById('w-${id}').style.width=this.value+'px'"></div>
+        <div class="pp-field"><label>Height</label>
+          <input type="number" value="${w.h}" min="${MIN_H}" oninput="propSetNum('${id}','h',this.value);document.getElementById('w-${id}').style.height=this.value+'px'"></div>
+      </div>
+      <div class="pp-section-label">Grid (for Python output)</div>
+      <div class="pp-row">
+        <div class="pp-field"><label>Col (0-11)</label>
+          <input type="number" value="${w.col||0}" min="0" max="11" oninput="propSetNum('${id}','col',this.value)"></div>
+        <div class="pp-field"><label>Colspan (1-12)</label>
+          <input type="number" value="${w.colspan||12}" min="1" max="12" oninput="propSetNum('${id}','colspan',this.value)"></div>
+      </div>
+      <button class="pp-delete-btn" onclick="deleteWidget('${id}')">Delete Widget</button>`;
+  }
+
+  else if (tab === "anim") {
+    body.innerHTML = `
+      <div class="pp-toggle-row">
+        <span class="pp-toggle-label">Animation</span>
+        <button class="pp-toggle${w.animate!==false?" on":""}" onclick="propToggle('${id}','animate',this)"></button>
+      </div>
+      <div class="pp-field"><label>Duration (ms)</label>
+        <input type="number" value="${w.animate_duration||800}" min="100" max="5000"
+          oninput="propSetNum('${id}','animate_duration',this.value)"></div>
+      <div class="pp-field"><label>Easing</label>
+        <select onchange="propSet('${id}','easing',this.value)">
+          ${["cubicOut","linear","quadraticIn","quadraticOut","elasticOut","bounceOut"].map(e=>
+            `<option value="${e}" ${w.easing===e?"selected":""}>${e}</option>`).join("")}
+        </select>
+      </div>`;
+  }
+
+  else if (tab === "interact") {
+    body.innerHTML = `
+      <div class="pp-toggle-row">
+        <span class="pp-toggle-label">Show Tooltips</span>
+        <button class="pp-toggle${w.tooltip!==false?" on":""}" onclick="propToggle('${id}','tooltip',this)"></button>
+      </div>
+      <div class="pp-toggle-row">
+        <span class="pp-toggle-label">Hover highlight</span>
+        <button class="pp-toggle${w.hover_effect?" on":""}" onclick="propToggle('${id}','hover_effect',this)"></button>
+      </div>
+      <div class="pp-section-label">Click Action</div>
+      <div class="pp-field"><label>Action type</label>
+        <select id="act-type-${id}" onchange="propSet('${id}','click_action',this.value||null);renderProps()">
+          <option value="">None</option>
+          <option value="filter"    ${w.click_action==="filter"?"selected":""}>Cross-filter linked charts</option>
+          <option value="drill"     ${w.click_action==="drill"?"selected":""}>Drill-down to detail</option>
+          <option value="navigate"  ${w.click_action==="navigate"?"selected":""}>Navigate to page</option>
+          <option value="tooltip"   ${w.click_action==="tooltip"?"selected":""}>Show detail tooltip</option>
+        </select>
+      </div>
+      ${w.click_action === "navigate" ? `
+      <div class="pp-field"><label>Target page path</label>
+        <input type="text" value="${w.click_target||""}" placeholder="/sales"
+          oninput="propSet('${id}','click_target',this.value)"></div>` : ""}
+      ${w.click_action === "filter" ? `
+      <div class="pp-field"><label>Filter field name</label>
+        <input type="text" value="${w.click_target||""}" placeholder="region"
+          oninput="propSet('${id}','click_target',this.value)"></div>` : ""}
+      ${w.click_action === "drill" ? `
+      <div class="pp-field"><label>Drill-down page</label>
+        <input type="text" value="${w.click_target||""}" placeholder="/detail"
+          oninput="propSet('${id}','click_target',this.value)"></div>` : ""}
+      <div class="pp-section-label">Linked Filters</div>
+      <div class="pp-field"><label>Re-query when these filters change (comma-separated)</label>
+        <input type="text" value="${(w.linked_filters||[]).join(",")}" placeholder="region, date"
+          oninput="propSet('${id}','linked_filters',this.value.split(',').map(s=>s.trim()).filter(Boolean))"></div>`;
+  }
+}
+
+function propSet(id, key, val) {
+  const w = getW(id);
+  if (!w) return;
+  w[key] = val;
+  syncCode();
+}
+function propSetNum(id, key, val) { propSet(id, key, parseFloat(val) || 0); }
+function propToggle(id, key, btn) {
+  const w = getW(id);
+  if (!w) return;
+  w[key] = !w[key];
+  btn.classList.toggle("on", w[key]);
+  syncCode();
+}
+
+function openColorPicker(idx, id, swatchEl) {
+  const input = document.createElement("input");
+  input.type = "color";
+  const w = getW(id);
+  input.value = w?.colors?.[idx] || "#6366F1";
+  input.oninput = () => {
+    if (!w.colors) w.colors = [...DEF_COLORS];
+    w.colors[idx] = input.value;
+    swatchEl.style.background = input.value;
+    if (_charts[id]) { try { _charts[id].dispose(); } catch(e) {} delete _charts[id]; }
+    renderPreview(w);
+    syncCode();
   };
-  fetch("/api/layout", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(state),
-  })
-  .then(r => r.json())
-  .then(d => { if (d.code) document.getElementById("code-output").textContent = d.code; })
-  .catch(() => {});
+  input.click();
 }
 
-// ── Toolbar ───────────────────────────────────────────────────────────────
+function addColor(id) {
+  const w = getW(id);
+  if (!w) return;
+  if (!w.colors) w.colors = [...DEF_COLORS];
+  w.colors.push("#6366F1");
+  renderProps();
+  syncCode();
+}
+
+function removeColor(idx, id) {
+  const w = getW(id);
+  if (!w || !w.colors) return;
+  w.colors.splice(idx, 1);
+  renderProps();
+  syncCode();
+}
+
+// ─── CODE SYNC ────────────────────────────────────────────────────────────
+function syncCode() {
+  const canvasW = canvasEl.offsetWidth || 1200;
+  const state = {
+    title: "Dashboard", theme: "default",
+    widgets: widgets.map(w => ({
+      ...w,
+      col:     Math.max(0,  Math.min(11, Math.round(w.x / canvasW * 12))),
+      colspan: Math.max(1,  Math.min(12, Math.round(w.w / canvasW * 12))),
+      height:  w.h,
+    })),
+  };
+  fetch("/api/layout", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(state) })
+    .then(r => r.json())
+    .then(d => { if (d.code) document.getElementById("code-output").textContent = d.code; })
+    .catch(() => {});
+}
+
+// ─── LIBRARY ──────────────────────────────────────────────────────────────
+const LIB_COLLAPSED = {};   // { category: bool }
+
+function buildLibrary(filter = "") {
+  const categories = [...new Set(WIDGET_DEFS.map(d => d.cat))];
+  const wrap = document.getElementById("lib-sections");
+  wrap.innerHTML = "";
+
+  categories.forEach(cat => {
+    const items = WIDGET_DEFS.filter(d => d.cat === cat && (!filter || d.label.toLowerCase().includes(filter.toLowerCase()) || d.type.includes(filter.toLowerCase())));
+    if (!items.length) return;
+
+    const collapsed = LIB_COLLAPSED[cat] || false;
+    const section   = document.createElement("div");
+    section.className = "wl-section" + (collapsed ? " collapsed" : "");
+
+    section.innerHTML = `
+      <div class="wl-section-header" onclick="toggleLibSection('${cat}')">
+        <span class="wl-section-title">${cat}</span>
+        <span class="wl-section-arrow">&#9660;</span>
+      </div>
+      <div class="wl-items">
+        ${items.map(d => `<div class="wl-item" draggable="true" data-type="${d.type}">
+          <span class="wl-icon">${d.icon}</span>${d.label}
+        </div>`).join("")}
+      </div>`;
+
+    // Attach drag events
+    section.querySelectorAll(".wl-item").forEach(item => {
+      item.addEventListener("dragstart", e => e.dataTransfer.setData("wtype", item.dataset.type));
+    });
+
+    wrap.appendChild(section);
+  });
+}
+
+function toggleLibSection(cat) {
+  LIB_COLLAPSED[cat] = !LIB_COLLAPSED[cat];
+  buildLibrary(document.getElementById("lib-search").value);
+}
+
+document.getElementById("lib-search").addEventListener("input", e => {
+  buildLibrary(e.target.value);
+});
+
+// ─── TOOLBAR & PREVIEW MODES ──────────────────────────────────────────────
+function setPreviewMode(mode) {
+  const outer = document.getElementById("canvas-outer");
+  outer.className = mode === "desktop" ? "" : "mode-" + mode;
+  ["desktop","tablet","mobile"].forEach(m => {
+    document.getElementById("btn-" + m).classList.toggle("active", m === mode);
+  });
+}
+
 document.getElementById("btn-undo").addEventListener("click", undo);
 document.getElementById("btn-redo").addEventListener("click", redo);
+
 document.getElementById("btn-grid").addEventListener("click", () => {
   gridOn = !gridOn;
-  document.getElementById("btn-grid").style.color = gridOn ? "var(--cc-accent)" : "";
-  drawGrid();
+  document.getElementById("btn-grid").classList.toggle("active", gridOn);
+  document.getElementById("grid-dots").classList.toggle("visible", gridOn);
 });
 
-function drawGrid() {
-  const svg = document.getElementById("grid-overlay");
-  svg.classList.toggle("visible", gridOn);
-  if (!gridOn) { svg.innerHTML = ""; return; }
-  const w = canvas.offsetWidth, h = canvas.offsetHeight;
-  svg.setAttribute("width", w); svg.setAttribute("height", h);
-  let lines = "";
-  for (let x = 0; x <= w; x += GRID) lines += `<line x1="${x}" y1="0" x2="${x}" y2="${h}" stroke="var(--cc-border)" stroke-width="0.5"/>`;
-  for (let y = 0; y <= h; y += GRID) lines += `<line x1="0" y1="${y}" x2="${w}" y2="${y}" stroke="var(--cc-border)" stroke-width="0.5"/>`;
-  svg.innerHTML = lines;
+document.getElementById("btn-snap").addEventListener("click", () => {
+  snapOn = !snapOn;
+  document.getElementById("btn-snap").classList.toggle("active", snapOn);
+});
+
+function saveLayout() { syncCode(); toast("Saved"); }
+
+function exportPy() {
+  const code = document.getElementById("code-output").textContent;
+  const blob  = new Blob([code], { type:"text/x-python" });
+  const url   = URL.createObjectURL(blob);
+  const a     = document.createElement("a"); a.href = url; a.download = "dashboard.py"; a.click();
+  URL.revokeObjectURL(url);
 }
 
-// Preview modes
-const previewWidths = { desktop: "1200px", tablet: "768px", mobile: "375px" };
-["desktop","tablet","mobile"].forEach(mode => {
-  document.getElementById("btn-" + mode).addEventListener("click", () => {
-    document.getElementById("canvas-wrap").style.maxWidth = previewWidths[mode];
-  });
-});
-
-// Save
-document.getElementById("btn-save").addEventListener("click", () => {
-  toast("Saved! ✓");
-  syncCode();
-});
-
-// Export
-document.getElementById("btn-export").addEventListener("click", () => {
-  const code = document.getElementById("code-output").textContent;
-  const blob = new Blob([code], { type: "text/x-python" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a"); a.href = url; a.download = "dashboard.py"; a.click();
-  URL.revokeObjectURL(url);
-});
-
-// Copy code
-document.getElementById("btn-copy-code").addEventListener("click", () => {
-  const code = document.getElementById("code-output").textContent;
-  navigator.clipboard.writeText(code).then(() => toast("Copied!"));
-});
-
-// Collapse code panel
+// Code preview collapse
 let codeCollapsed = false;
 document.getElementById("btn-collapse-code").addEventListener("click", () => {
   codeCollapsed = !codeCollapsed;
-  document.getElementById("code-preview").style.height = codeCollapsed ? "32px" : "180px";
-  document.getElementById("btn-collapse-code").textContent = codeCollapsed ? "▲" : "▼";
+  document.getElementById("code-preview").classList.toggle("collapsed", codeCollapsed);
+  document.getElementById("btn-collapse-code").textContent = codeCollapsed ? "\u25b2" : "\u25bc";
+});
+document.getElementById("btn-copy-code").addEventListener("click", () => {
+  navigator.clipboard.writeText(document.getElementById("code-output").textContent).then(() => toast("Copied!"));
 });
 
 // Properties tabs
@@ -783,34 +1723,69 @@ document.querySelectorAll(".pp-tab").forEach(tab => {
   tab.addEventListener("click", () => {
     document.querySelectorAll(".pp-tab").forEach(t => t.classList.remove("active"));
     tab.classList.add("active");
+    propsTab = tab.dataset.tab;
     renderProps();
   });
 });
 
-// Keyboard
+// Click on canvas background → deselect
+document.addEventListener("click", e => {
+  if (e.target === canvasEl || e.target.id === "grid-dots") clearSel();
+});
+
+// ─── KEYBOARD SHORTCUTS ───────────────────────────────────────────────────
 document.addEventListener("keydown", e => {
-  if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
-  if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) { e.preventDefault(); redo(); }
-  if (e.key === "Delete" || e.key === "Backspace") {
-    if (selected && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") {
-      push();
-      widgets = widgets.filter(w => w.id !== selected);
-      selected = null; repaint(); syncCode(); renderProps();
-    }
+  const tag = document.activeElement.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+  if ((e.ctrlKey||e.metaKey) && !e.shiftKey && e.key === "z") { e.preventDefault(); undo(); return; }
+  if ((e.ctrlKey||e.metaKey) && (e.key === "y" || (e.shiftKey && e.key === "z"))) { e.preventDefault(); redo(); return; }
+  if ((e.ctrlKey||e.metaKey) && e.key === "d") { e.preventDefault(); duplicateSelected(); return; }
+  if ((e.ctrlKey||e.metaKey) && e.key === "a") {
+    e.preventDefault();
+    widgets.forEach(w => selectedIds.add(w.id));
+    updateSelectionUI(); renderProps(); return;
+  }
+
+  // Arrow key nudge
+  if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(e.key) && selectedIds.size) {
+    e.preventDefault();
+    const step = e.shiftKey ? 10 : 1;
+    push();
+    selectedIds.forEach(id => {
+      const w = getW(id); if (!w) return;
+      if (e.key === "ArrowLeft")  { w.x -= step; }
+      if (e.key === "ArrowRight") { w.x += step; }
+      if (e.key === "ArrowUp")    { w.y -= step; }
+      if (e.key === "ArrowDown")  { w.y += step; }
+      const el = document.getElementById("w-" + id);
+      if (el) { el.style.left = w.x + "px"; el.style.top = w.y + "px"; }
+    });
+    syncCode(); return;
+  }
+
+  if ((e.key === "Delete" || e.key === "Backspace") && selectedIds.size) {
+    e.preventDefault();
+    deleteSelected();
   }
 });
 
-// Toast
-function toast(msg, duration = 2000) {
-  const t = document.getElementById("cc-toast");
-  t.textContent = msg; t.classList.add("visible");
-  setTimeout(() => t.classList.remove("visible"), duration);
+// ─── TOAST ────────────────────────────────────────────────────────────────
+let _toastTimer = null;
+function toast(msg, ms = 2200) {
+  const el = document.getElementById("cc-toast");
+  el.textContent = msg;
+  el.classList.add("visible");
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove("visible"), ms);
 }
 
-// Init
-repaint();
-drawGrid();
+// ─── INIT ─────────────────────────────────────────────────────────────────
+buildLibrary();
+setPreviewMode("desktop");
+document.getElementById("btn-desktop").classList.add("active");
+document.getElementById("btn-snap").classList.add("active");
+updateUndoRedo();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 </body>
 </html>
