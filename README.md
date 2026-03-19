@@ -1,57 +1,14 @@
 <div align="center">
 
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!--  HEADER                                                      -->
-<!-- ═══════════════════════════════════════════════════════════ -->
-<p>
-  <code style="
-    font-size: 3.2em;
-    font-weight: 900;
-    letter-spacing: -0.06em;
-    background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 50%, #F97316 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  ">CHART</code><code style="
-    font-size: 3.2em;
-    font-weight: 900;
-    letter-spacing: -0.06em;
-    color: #e2e8f0;
-    text-shadow: 0 0 30px rgba(139,92,246,0.4);
-  ">CRAFT</code>
-</p>
+```
+  > chartcraft <    python dashboard builder
+```
 
-<p style="
-  font-size: 1.05em;
-  color: #94a3b8;
-  margin-top: 0.4em;
-  margin-bottom: 0.2em;
-">
-  <strong style="color: #e2e8f0">Python Dashboard Builder</strong>
-  &mdash;
-  Zero deps &bull; Real-time SSE &bull; Drag-and-drop &bull; Export to HTML, PDF, Docker
-</p>
+[![PyPI](https://img.shields.io/badge/PyPI-0.1.1-8B5CF6?style=flat-square&logo=pypi&logoColor=white)](https://pypi.org/project/chartcraft/)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![License](https://img.shields.io/badge/License-MIT-10B981?style=flat-square)](LICENSE)
+[![Deps](https://img.shields.io/badge/Dependencies-Zero-8B5CF6?style=flat-square)](#)
 
-<p>
-  <a href="https://pypi.org/project/chartcraft/">
-    <img src="https://img.shields.io/badge/PyPI-0.1.1-8B5CF6?style=flat-square&logo=pypi&logoColor=white"
-         alt="PyPI" style="border-radius:6px"/>
-  </a>
-  <a href="https://github.com/stephenbaraik/chartcraft/actions">
-    <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white"
-         alt="Python 3.11+" style="border-radius:6px"/>
-  </a>
-  <a href="https://github.com/stephenbaraik/chartcraft/blob/master/LICENSE">
-    <img src="https://img.shields.io/badge/License-MIT-10B981?style=flat-square"
-         alt="MIT" style="border-radius:6px"/>
-  </a>
-  <a href="https://github.com/stephenbaraik/chartcraft">
-    <img src="https://img.shields.io/badge/Dependencies-Zero-8B5CF6?style=flat-square"
-         alt="Zero dependencies" style="border-radius:6px"/>
-  </a>
-</p>
-
-<!-- ═══════════════════════════════════════════════════════════ -->
 </div>
 
 ---
