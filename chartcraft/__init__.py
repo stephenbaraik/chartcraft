@@ -40,9 +40,9 @@ from .charts import (
     table, metric, sankey, treemap, funnel
 )
 from .dashboard import Dashboard
-from .render import render, save, serve
+from .render import render, save, save_all, serve
 from .themes import theme, reset_theme, apply_dark_theme, apply_light_theme, apply_vibrant_theme, get_theme, export_theme
-from .visual_builder import set_title, set_layout, add_bar, add_line, build_dashboard
+from .visual_builder import set_title, set_layout, add_bar, add_line, add_pie, add_scatter, build_dashboard
 
 __version__ = "1.0.0"
 __all__ = [
@@ -54,10 +54,10 @@ __all__ = [
     "gauge", "candlestick", "table", "metric", "sankey",
     "treemap", "funnel",
     # Core functions
-    "Dashboard", "render", "save", "serve", "theme", "reset_theme",
+    "Dashboard", "render", "save", "save_all", "serve", "theme", "reset_theme",
     # Theme customization
     "apply_dark_theme", "apply_light_theme", "apply_vibrant_theme",
     "get_theme", "export_theme",
     # Visual builder
-    "set_title", "set_layout", "add_bar", "add_line", "build_dashboard",
+    "set_title", "set_layout", "add_bar", "add_line", "add_pie", "add_scatter", "build_dashboard",
 ]

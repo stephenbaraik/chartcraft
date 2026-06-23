@@ -222,7 +222,7 @@ cc.save(dashboard, "business_dashboard.html")
 print("✓ Exported dashboard to 'business_dashboard.html'")
 
 # Export all dashboards
-cc.save_all("dashboards/")
+cc.save_all(dashboard2, "dashboards/")
 print("✓ Exported all dashboards to 'dashboards/' directory")
 
 # Serve locally (uncomment to run)
