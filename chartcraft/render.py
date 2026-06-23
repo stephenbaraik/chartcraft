@@ -226,6 +226,16 @@ def save(dashboard, path: str):
     with open(path, 'w', encoding='utf-8') as f:
         f.write(html)
     print(f"◆ Exported → {path}")
+
+def save_all(dashboard, directory: str = "./"):
+    """Export dashboard(s) to a directory."""
+    import os
+    os.makedirs(directory, exist_ok=True)
+    path = os.path.join(directory, "dashboard.html")
+    html = render(dashboard)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(html)
+    print(f"◆ Exported → {path}")
 def serve(dashboard, port: int = 8050):
     """Serve dashboard locally."""
     spec = dashboard.to_spec()
