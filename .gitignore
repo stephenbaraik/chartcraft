@@ -1,10 +1,12 @@
+# Python
+.Python
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-.Python
 *.egg
 *.egg-info/
+*.whl
 dist/
 build/
 eggs/
@@ -15,9 +17,13 @@ parts/
 sdist/
 var/
 wheels/
-*.egg-info/
 .installed.cfg
-*.egg
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
 
 # Virtual environments
 venv/
@@ -28,6 +34,8 @@ ENV/
 # IDEs
 .idea/
 .vscode/
+
+# Editor backups
 *.swp
 *.swo
 
@@ -43,8 +51,13 @@ Thumbs.db
 # Exports
 *.pdf
 dashboard_export/
+*.html
 
-# Linter caches
+# Type checking
+.mypy_cache/
+dmypy.json
+
+# Linter / test caches
 .ruff_cache/
 .pytest_cache/
 .coverage
@@ -56,8 +69,3 @@ htmlcov/
 
 # Runtime
 tmp/
-*.html
-
-# Editor backups
-*.swp
-*.swo
