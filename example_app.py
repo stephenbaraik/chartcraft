@@ -1,269 +1,328 @@
 """
-Example Application for ChartCraft v1
+Superstore Financial Dashboard — ChartCraft v1
 
-This file demonstrates the new simplified ChartCraft v1 API with:
-- Pandas-like data handling
-- Simple, intuitive chart creation
-- Stunning visuals (better than Power BI/Tableau)
-- Full customization capabilities
-- Real-world usage examples
+A stunning, interactive executive dashboard built on 10,800 real
+Superstore orders. Spot revenue trends, profit leaks, regional
+winners, and category performance — all from 50 lines of Python.
 
-ChartCraft v1 is a minimalist, pandas-like approach to creating
-interactive dashboards with full customization and no presets.
+Usage:
+    python example_app.py
+    # → http://localhost:8050
 """
+
+import csv
+from collections import defaultdict
 
 import chartcraft as cc
 
-# Example 1: Basic Pandas-like Data Handling
-print("=== Example 1: Pandas-like Data Handling ===")
+# ── 1. Load & aggregate 10,800 orders ──────────────────────────────
 
-# Create data like pandas DataFrame
-data = cc.Data({
-    "month": ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-    "sales": [100, 150, 200, 180, 220, 250],
-    "profit": [20, 35, 50, 40, 60, 70],
-    "expenses": [80, 115, 150, 140, 160, 180]
+with open("data/superstore.csv") as f:
+    raw = list(csv.DictReader(f))
+
+# Helper: safe float
+def sf(val):
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return 0.0
+
+
+# ── Monthly trends ──────────────────────────────────────────────────
+
+monthly = defaultdict(lambda: {"sales": 0, "profit": 0, "orders": 0, "discount": 0.0})
+for r in raw:
+    d = r.get("Order Date", "")
+    parts = d.split("/")
+    key = f"{parts[0]}/{parts[2]}" if len(parts) == 3 else "?"
+    s = sf(r.get("Sales"))
+    monthly[key]["sales"] += s
+    monthly[key]["profit"] += sf(r.get("Profit"))
+    monthly[key]["orders"] += 1
+    monthly[key]["discount"] += sf(r.get("Discount"))
+
+sorted_months = sorted(monthly.keys(), key=lambda k: (int(k.split("/")[1]), int(k.split("/")[0])))
+months = sorted_months
+month_sales = [round(monthly[m]["sales"], 2) for m in sorted_months]
+month_profit = [round(monthly[m]["profit"], 2) for m in sorted_months]
+month_orders = [monthly[m]["orders"] for m in sorted_months]
+
+# Total metrics
+total_sales = sum(month_sales)
+total_profit = sum(month_profit)
+total_orders = sum(month_orders)
+total_discount = sum(monthly[m]["discount"] for m in sorted_months)
+avg_discount_pct = round(total_discount / total_orders * 100, 1) if total_orders else 0
+margin_pct = round(total_profit / total_sales * 100, 1) if total_sales else 0
+
+month_data = cc.Data({
+    "month": months,
+    "Revenue ($K)": [round(s / 1000, 1) for s in month_sales],
+    "Profit ($K)": [round(p / 1000, 1) for p in month_profit],
 })
 
-# Pandas-like operations
-print(f"Original data: {data}")
-print(f"Data shape: {len(data.columns)} columns x {len(data.data['month'])} rows")
 
-# Filter data
-profitable_data = data.filter(profit=lambda val: val > 40)
-print(f"\nFiltered data (profit > 40): {profitable_data}")
+# ── Category & sub-category ─────────────────────────────────────────
 
-# Sort data
-sorted_data = data.sort_values("sales", ascending=False)
-print(f"\nSorted by sales: {sorted_data.head()}")
+cat_stats = defaultdict(lambda: {"sales": 0, "profit": 0, "orders": 0})
+sub_stats = defaultdict(lambda: {"sales": 0, "profit": 0, "orders": 0})
+for r in raw:
+    c = r.get("Category") or "Unknown"
+    sc = r.get("Sub-Category") or "Unknown"
+    s = sf(r.get("Sales"))
+    cat_stats[c]["sales"] += s
+    cat_stats[c]["profit"] += sf(r.get("Profit"))
+    cat_stats[c]["orders"] += 1
+    sub_stats[sc]["sales"] += s
+    sub_stats[sc]["profit"] += sf(r.get("Profit"))
+    sub_stats[sc]["orders"] += 1
 
-# Get basic statistics
-stats = data.describe()
-print(f"\nBasic statistics:\n{stats}")
+cat_names = list(cat_stats.keys())
+cat_sales = [round(cat_stats[c]["sales"], 2) for c in cat_names]
+cat_profit = [round(cat_stats[c]["profit"], 2) for c in cat_names]
 
-# Example 2: Simple Chart Creation
-print("\n\n=== Example 2: Simple Chart Creation ===")
+cat_data = cc.Data({
+    "category": cat_names,
+    "Revenue": cat_sales,
+    "Profit": cat_profit,
+})
 
-# Create charts with stunning visuals
-bar_chart = cc.bar(
-    data,
-    title="Monthly Sales Performance",
-    x="month",
-    y="sales",
-    color="linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    width=800,
-    height=400,
-    bar_border_radius=8,
-    bar_shadow="0 4px 12px rgba(0, 0, 0, 0.15)"
+# Sub-category top 10 by revenue
+sub_sorted = sorted(sub_stats.items(), key=lambda x: x[1]["sales"], reverse=True)
+top_sub = sub_sorted[:10]
+sc_names = [s[0] for s in top_sub]
+sc_sales = [round(s[1]["sales"], 2) for s in top_sub]
+sc_profit = [round(s[1]["profit"], 2) for s in top_sub]
+
+subcat_data = cc.Data({
+    "subcategory": sc_names,
+    "Revenue": sc_sales,
+    "Profit": sc_profit,
+})
+
+
+# ── Segment analysis ────────────────────────────────────────────────
+
+seg_stats = defaultdict(lambda: {"sales": 0, "profit": 0, "orders": 0})
+for r in raw:
+    seg = r.get("Segment") or "Unknown"
+    s = sf(r.get("Sales"))
+    seg_stats[seg]["sales"] += s
+    seg_stats[seg]["profit"] += sf(r.get("Profit"))
+    seg_stats[seg]["orders"] += 1
+
+seg_names = list(seg_stats.keys())
+seg_sales = [round(seg_stats[s]["sales"], 2) for s in seg_names]
+seg_profit = [round(seg_stats[s]["profit"], 2) for s in seg_names]
+
+seg_data = cc.Data({
+    "segment": seg_names,
+    "Revenue": seg_sales,
+    "Profit": seg_profit,
+})
+
+
+# ── Region breakdown ────────────────────────────────────────────────
+
+region_stats = defaultdict(lambda: {"sales": 0, "orders": 0})
+for r in raw:
+    reg = r.get("Region") or "Unknown"
+    s = sf(r.get("Sales"))
+    region_stats[reg]["sales"] += s
+    region_stats[reg]["orders"] += 1
+
+reg_names = list(region_stats.keys())
+reg_sales = [round(region_stats[r]["sales"], 2) for r in reg_names]
+
+region_data = cc.Data({
+    "region": reg_names,
+    "Revenue": reg_sales,
+})
+
+
+# ── Top 10 states ───────────────────────────────────────────────────
+
+state_stats = defaultdict(lambda: {"sales": 0, "profit": 0})
+for r in raw:
+    st = r.get("State") or "Unknown"
+    s = sf(r.get("Sales"))
+    state_stats[st]["sales"] += s
+    state_stats[st]["profit"] += sf(r.get("Profit"))
+
+state_sorted = sorted(state_stats.items(), key=lambda x: x[1]["sales"], reverse=True)
+top_states = state_sorted[:10]
+st_names = [s[0] for s in top_states]
+st_sales = [round(s[1]["sales"], 2) for s in top_states]
+st_profit = [round(s[1]["profit"], 2) for s in top_states]
+
+state_data = cc.Data({
+    "state": st_names,
+    "Revenue": st_sales,
+    "Profit": st_profit,
+})
+
+
+# ── Ship-mode (operational) ─────────────────────────────────────────
+
+ship_stats = defaultdict(lambda: {"sales": 0, "orders": 0})
+for r in raw:
+    sm = r.get("Ship Mode") or "Unknown"
+    ship_stats[sm]["sales"] += sf(r.get("Sales"))
+    ship_stats[sm]["orders"] += 1
+
+ship_names = list(ship_stats.keys())
+ship_orders = [ship_stats[s]["orders"] for s in ship_names]
+ship_sales = [round(ship_stats[s]["sales"], 2) for s in ship_names]
+
+ship_data = cc.Data({
+    "mode": ship_names,
+    "Orders": ship_orders,
+    "Revenue": ship_sales,
+})
+
+
+# ── Scatter: 500 samples for performance ────────────────────────────
+
+import random
+sample = random.sample(raw, min(500, len(raw)))
+scatter_x, scatter_y = [], []
+for r in sample:
+    disc = sf(r.get("Discount"))
+    prof = sf(r.get("Profit"))
+    scatter_x.append(disc)
+    scatter_y.append(prof)
+
+scatter_data = cc.Data({
+    "discount": scatter_x,
+    "profit": scatter_y,
+})
+
+
+# ====================================================================
+#  DASHBOARD
+# ====================================================================
+
+# Theme — sleek dark executive look
+cc.theme(
+    background="#0f0f1a",
+    card_background="#1a1a2e",
+    title_color="#ffffff",
+    text_color="#b0b0cc",
+    header_background="linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%)",
 )
-
-line_chart = cc.line(
-    data,
-    title="Profit Trend",
-    x="month",
-    y="profit",
-    color="#3498db",
-    line_smooth=True,
-    line_width=3,
-    show_dots=True,
-    dot_size=6
-)
-
-area_chart = cc.area(
-    data,
-    title="Expenses Overview",
-    x="month",
-    y="expenses",
-    color="linear-gradient(135deg, #e74c3c 0%, #f39c12 100%)",
-    opacity=0.7,
-    smooth=True
-)
-
-pie_chart = cc.pie(
-    data,
-    title="Quarterly Distribution",
-    colors=["#e74c3c", "#3498db", "#2ecc71", "#f39c12", "#9b59b6"],
-    donut=True,
-    inner_radius="60%",
-    label_show=True,
-    label_position="outside"
-)
-
-print(f"Created {len([bar_chart, line_chart, area_chart, pie_chart])} charts with stunning visuals")
-
-# Example 3: Dashboard Creation
-print("\n\n=== Example 3: Dashboard Creation ===")
 
 dashboard = cc.Dashboard(
-    title="Business Analytics Dashboard",
-    charts=[bar_chart, line_chart, area_chart, pie_chart],
+    title="Superstore Financial Intelligence",
     layout="grid",
     columns=2,
-    spacing=20
+    spacing=24,
+    charts=[
+        # Chart 1 — Monthly Revenue & Profit (trend, full-width)
+        cc.line(
+            month_data,
+            x="month",
+            y=["Revenue ($K)", "Profit ($K)"],
+            title="Monthly Revenue & Profit",
+            colors=["#7C3AED", "#10B981"],
+            smooth=True,
+            show_dots=True,
+            line_width=3,
+            height=360,
+            legend=True,
+            legend_position="top",
+        ),
+        # Chart 2 — Sales by Category
+        cc.bar(
+            cat_data,
+            x="category",
+            y="Revenue",
+            title="Revenue by Category",
+            colors=["#7C3AED"],
+            bar_border_radius=8,
+            bar_shadow="0 4px 12px rgba(0,0,0,0.2)",
+            height=320,
+            legend=False,
+        ),
+        # Chart 3 — Regional split (donut)
+        cc.donut(
+            region_data,
+            x="region",
+            y="Revenue",
+            title="Revenue by Region",
+            colors=["#7C3AED", "#10B981", "#F59E0B", "#3B82F6"],
+            inner_radius="55%",
+            height=320,
+            legend=True,
+            legend_position="bottom",
+        ),
+        # Chart 4 — Segment comparison
+        cc.bar(
+            seg_data,
+            x="segment",
+            y="Revenue",
+            title="Revenue by Customer Segment",
+            colors=["#10B981"],
+            bar_border_radius=8,
+            height=320,
+            legend=False,
+        ),
+        # Chart 5 — Top 10 sub-categories
+        cc.bar(
+            subcat_data,
+            x="subcategory",
+            y="Revenue",
+            title="Top 10 Sub-Categories by Revenue",
+            colors=["#F59E0B"],
+            bar_border_radius=6,
+            height=340,
+            legend=False,
+        ),
+        # Chart 6 — Top 10 states
+        cc.bar(
+            state_data,
+            x="state",
+            y="Revenue",
+            title="Top 10 States by Revenue",
+            colors=["#3B82F6"],
+            bar_border_radius=6,
+            height=340,
+            legend=False,
+        ),
+        # Chart 7 — Discount vs Profit scatter
+        cc.scatter(
+            scatter_data,
+            x="discount",
+            y="profit",
+            title="Discount Rate vs Profit (Sample of 500 Orders)",
+            colors=["#EF4444"],
+            height=320,
+            legend=False,
+        ),
+        # Chart 8 — Monthly order volume
+        cc.area(
+            cc.Data({
+                "month": months,
+                "Orders": month_orders,
+            }),
+            x="month",
+            y="Orders",
+            title="Monthly Order Volume",
+            colors=["#8B5CF6"],
+            smooth=True,
+            height=320,
+            legend=False,
+        ),
+    ],
 )
 
-print(f"Created dashboard: {dashboard}")
-print(f"Dashboard contains {len(dashboard.charts)} charts")
+# Print key metrics
+print(f"◆  Superstore Financial Dashboard")
+print(f"   Total Revenue:  ${total_sales:,.2f}")
+print(f"   Total Profit:   ${total_profit:,.2f}")
+print(f"   Margin:         {margin_pct}%")
+print(f"   Total Orders:   {total_orders:,}")
+print(f"   Avg Discount:   {avg_discount_pct}%")
+print()
 
-# Example 4: Enhanced Customization
-print("\n\n=== Example 4: Enhanced Customization ===")
-
-# Apply stunning theme
-cc.theme(
-    background="#1a1a1a",
-    header_background="linear-gradient(135deg, #2c3e50 0%, #34495e 100%)",
-    card_background="#2d2d2d",
-    title_color="#ecf0f1",
-    text_color="#bdc3c7",
-    grid_color="#34495e",
-    legend_background="rgba(44, 62, 80, 0.9)",
-    legend_border_color="#3498db",
-    tooltip_background="rgba(0, 0, 0, 0.9)",
-    tooltip_border_color="#3498db",
-    font_family="'Inter', sans-serif",
-    font_size=14,
-    animation=True,
-    animation_duration=800
-)
-
-# Create charts with custom styling
-custom_bar = cc.bar(
-    data,
-    title="Custom Styled Bar Chart",
-    x="month",
-    y="sales",
-    color="#00ff00",
-    width=900,
-    height=500,
-    bar_border_radius=12,
-    bar_shadow="0 8px 24px rgba(0, 0, 0, 0.3)",
-    grid=True,
-    grid_color="#34495e",
-    legend=True,
-    legend_position="top",
-    legend_background="rgba(44, 62, 80, 0.95)",
-    tooltip=True,
-    tooltip_background="rgba(0, 0, 0, 0.95)",
-    tooltip_border_color="#00ff00",
-    tooltip_border_width=2
-)
-
-# Example 5: Advanced Data Manipulation
-print("\n\n=== Example 5: Advanced Data Manipulation ===")
-
-# Create more complex data
-complex_data = cc.Data({
-    "product": ["A", "B", "C", "D", "E", "F", "G", "H"],
-    "q1_sales": [100, 150, 200, 120, 180, 90, 160, 140],
-    "q2_sales": [120, 180, 220, 150, 200, 110, 190, 170],
-    "q3_sales": [140, 200, 240, 180, 220, 130, 210, 190],
-    "q4_sales": [160, 220, 260, 200, 240, 150, 230, 210]
-})
-
-# Create time series data
-time_series_data = cc.Data({
-    "date": ["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"],
-    "temperature": [20, 22, 25, 23, 26],
-    "humidity": [60, 65, 70, 68, 72],
-    "pressure": [1013, 1015, 1012, 1014, 1016]
-})
-
-# Create charts from complex data
-quarterly_chart = cc.bar(
-    complex_data,
-    title="Quarterly Sales by Product",
-    x="product",
-    y="q4_sales",
-    colors=["#e74c3c", "#3498db", "#2ecc71", "#f39c12", "#9b59b6", "#1abc9c", "#34495e", "#95a5a6"],
-    bar_border_radius=6,
-    grid=True,
-    legend=True,
-    legend_position="top",
-    animation=True
-)
-
-time_series_chart = cc.line(
-    time_series_data,
-    title="Weather Monitoring",
-    x="date",
-    y=["temperature", "humidity"],
-    line_smooth=True,
-    show_dots=True,
-    dot_size=8,
-    legend=True,
-    legend_position="top",
-    grid=True,
-    grid_color="#e8f0f8",
-    animation=True
-)
-
-# Example 6: Visual Builder Pattern
-print("\n\n=== Example 6: Visual Builder Pattern ===")
-
-# Using the visual builder pattern
-cc.set_title("Advanced Analytics Dashboard")
-cc.set_layout("grid", columns=2, spacing=25)
-
-# Add charts using visual builder
-cc.add_bar(data, title="Sales Overview", x="month", y="sales")
-cc.add_line(data, title="Profit Trend", x="month", y="profit")
-cc.add_pie(data, title="Distribution", colors=["#e74c3c", "#3498db", "#2ecc71"])
-cc.add_scatter(time_series_data, title="Weather Correlation", x="temperature", y="humidity")
-
-# Build dashboard from visual builder
-dashboard2 = cc.build_dashboard()
-print(f"Created dashboard from visual builder: {dashboard2}")
-
-# Example 7: Export and Serve
-print("\n\n=== Example 7: Export and Serve ===")
-
-# Export to HTML
-cc.save(dashboard, "business_dashboard.html")
-print("✓ Exported dashboard to 'business_dashboard.html'")
-
-# Export all dashboards
-cc.save_all(dashboard2, "dashboards/")
-print("✓ Exported all dashboards to 'dashboards/' directory")
-
-# Serve locally (uncomment to run)
-# cc.serve(dashboard, port=8050)
-# print("✓ Dashboard served at http://localhost:8050")
-
-# Example 8: Theme Management
-print("\n\n=== Example 8: Theme Management ===")
-
-# Apply different themes
-cc.apply_dark_theme()
-print("✓ Applied dark theme")
-
-cc.apply_light_theme()
-print("✓ Applied light theme")
-
-cc.apply_vibrant_theme()
-print("✓ Applied vibrant theme")
-
-# Get current theme
-theme = cc.get_theme()
-print(f"✓ Current theme has {len(theme)} properties")
-
-# Example 9: Data Export/Import
-print("\n\n=== Example 9: Data Export/Import ===")
-
-# Export theme
-theme_data = cc.export_theme()
-print(f"✓ Exported theme with {len(theme_data)} sections")
-
-# Import theme (example)
-# cc.import_theme(theme_data)
-
-print("\n\n=== Summary ===")
-print("ChartCraft v1 provides:")
-print("✓ Pandas-like data handling")
-print("✓ Simple, intuitive chart creation")
-print("✓ Stunning visuals (better than Power BI/Tableau)")
-print("✓ Full customization capabilities")
-print("✓ Visual builder pattern")
-print("✓ Export/import functionality")
-print("✓ Theme management")
-print("✓ Real-time serving")
-print("\nAll examples demonstrate the simplified, powerful API of ChartCraft v1!")
+# Serve
+cc.serve(dashboard, port=8050)
