@@ -44,5 +44,20 @@ Thumbs.db
 *.pdf
 dashboard_export/
 
-#claude
+# Linter caches
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OpenCode tooling
+.omo/
 *.claude
+
+# Runtime
+tmp/
+*.html
+
+# Editor backups
+*.swp
+*.swo
