@@ -15,38 +15,103 @@ class CustomizationSystem:
     """
     
     def __init__(self):
-        # Default customization (minimal - no presets)
+        # Default customization (minimal - no presets, but stunning by default)
         self.theme = {
-            # Visual styling
+            # Visual styling - modern, clean, and professional
             'background': '#ffffff',
-            'header_background': '#f8f9fa',
+            'header_background': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             'card_background': '#ffffff',
-            'title_color': '#333333',
-            'text_color': '#666666',
+            'title_color': '#2c3e50',
+            'text_color': '#546e7a',
             
-            # Chart-specific styling
-            'bar_color': '#4ECDC4',
-            'line_color': '#45B7D1',
-            'pie_colors': ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'],
+            # Chart-specific styling - modern color palette
+            'bar_color': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            'line_color': '#3498db',
+            'pie_colors': ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#34495e'],
             'grid': True,
-            'grid_color': '#e0e0e0',
+            'grid_color': '#e8f0f8',
             'grid_width': 1,
             
-            # Display settings
+            # Display settings - enhanced for better visuals
             'legend': True,
             'legend_position': 'bottom',
+            'legend_background': 'rgba(255, 255, 255, 0.9)',
+            'legend_border': '1px solid #e0e0e0',
+            'legend_border_radius': '4px',
             'tooltip': True,
+            'tooltip_background': 'rgba(0, 0, 0, 0.8)',
+            'tooltip_border_color': '#3498db',
+            'tooltip_border_width': '2px',
+            'tooltip_font_size': '12px',
+            'tooltip_font_color': '#ffffff',
             'animation': True,
+            'animation_duration': 500,
             
-            # Interaction
+            # Interaction - enhanced for better UX
             'zoom': True,
             'pan': True,
             'select': True,
+            'select_mode': 'single',
+            'hover_brighten': True,
+            'hover_opacity': 0.8,
             
-            # Font settings
-            'font_family': 'Arial, sans-serif',
-            'font_size': 12,
-            'font_weight': 'normal'
+            # Font settings - modern typography
+            'font_family': 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            'font_size': 13,
+            'font_weight': '400',
+            'title_font_weight': '600',
+            'title_font_size': '18px',
+            
+            # Chart-specific enhancements
+            'bar_border_radius': 4,
+            'bar_shadow': '0 2px 8px rgba(0, 0, 0, 0.1)',
+            'line_smooth': True,
+            'line_shadow': True,
+            'pie_donut': False,
+            'pie_donut_ratio': 0.6,
+            'pie_label_distance': 0.8,
+            'pie_label_color': '#2c3e50',
+            'pie_label_font_size': '12px',
+            'heatmap_color_scheme': 'viridis',
+            'heatmap_label_show': True,
+            'radar_shape': 'polygon',
+            'radar_axis_name': True,
+            'waterfall_connector_color': '#95a5a6',
+            'waterfall_connector_width': '2px',
+            'gauge_start_angle': 225,
+            'gauge_end_angle': -45,
+            'gauge_axis': True,
+            'gauge_axis_line_style': 'solid',
+            'gauge_axis_line_width': '2px',
+            'gauge_axis_line_color': '#95a5a6',
+            'candlestick_up_color': '#e74c3c',
+            'candlestick_down_color': '#2ecc71',
+            'candlestick_up_border_color': '#e74c3c',
+            'candlestick_down_border_color': '#2ecc71',
+            'table_striped': True,
+            'table_striped_color': '#f8f9fa',
+            'table_border_color': '#e0e0e0',
+            'table_border_width': '1px',
+            'table_cell_padding': '12px',
+            'table_font_size': '13px',
+            'metric_threshold_color': '#e74c3c',
+            'metric_threshold_width': '3px',
+            'metric_show_trend': True,
+            'metric_trend_color': '#3498db',
+            'sankey_node_width': 25,
+            'sankey_node_gap': 8,
+            'sankey_link_width': '2px',
+            'sankey_link_color': 'rgba(52, 152, 219, 0.6)',
+            'treemap_width': '100%',
+            'treemap_height': '100%',
+            'treemap_label_show': True,
+            'treemap_label_font_size': '12px',
+            'funnel_x': 'center',
+            'funnel_y': 'center',
+            'funnel_width': '80%',
+            'funnel_height': '80%',
+            'funnel_label_show': True,
+            'funnel_label_position': 'inside'
         }
         
         # Chart customization
