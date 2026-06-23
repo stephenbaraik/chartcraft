@@ -32,16 +32,20 @@ def sf(val):
 
 monthly = defaultdict(lambda: {"sales": 0, "profit": 0, "orders": 0, "discount": 0.0})
 for r in raw:
-    d = r.get("Order Date", "")
-    parts = d.split("/")
-    key = f"{parts[0]}/{parts[2]}" if len(parts) == 3 else "?"
+    d = r.get("Order Date")
+    if d and "/" in d:
+        parts = d.split("/")
+        key = f"{parts[0]}/{parts[2]}"
+    else:
+        key = "?"
     s = sf(r.get("Sales"))
     monthly[key]["sales"] += s
     monthly[key]["profit"] += sf(r.get("Profit"))
     monthly[key]["orders"] += 1
     monthly[key]["discount"] += sf(r.get("Discount"))
 
-sorted_months = sorted(monthly.keys(), key=lambda k: (int(k.split("/")[1]), int(k.split("/")[0])))
+non_null_months = [k for k in monthly if k != "?"]
+sorted_months = sorted(non_null_months, key=lambda k: (int(k.split("/")[1]), int(k.split("/")[0])))
 months = sorted_months
 month_sales = [round(monthly[m]["sales"], 2) for m in sorted_months]
 month_profit = [round(monthly[m]["profit"], 2) for m in sorted_months]
