@@ -43,8 +43,8 @@ def test_data_filtering():
         "profit": [20, 35, 50, 40]
     })
     
-    # Filter by profit > 40
-    filtered = data.filter(profit=lambda val: val > 40)
+    # Filter by profit >= 40
+    filtered = data.filter(profit=lambda val: val >= 40)
     assert len(filtered.data["month"]) == 2
     assert filtered.data["month"][0] == "Mar"
     assert filtered.data["month"][1] == "Apr"
@@ -193,8 +193,8 @@ def test_theme_export():
     # Export theme
     theme_data = cc.export_theme()
     assert len(theme_data) > 0
-    assert "background" in theme_data
-    assert "title_color" in theme_data
+    assert "background" in theme_data["theme"]
+    assert "title_color" in theme_data["theme"]
     
     print("✓ Theme export test passed")
 

@@ -41,7 +41,8 @@ from .charts import (
 )
 from .dashboard import Dashboard
 from .render import render, save, serve
-from .themes import theme, reset_theme
+from .themes import theme, reset_theme, apply_dark_theme, apply_light_theme, apply_vibrant_theme, get_theme, export_theme
+from .visual_builder import set_title, set_layout, add_bar, add_line, build_dashboard
 
 __version__ = "1.0.0"
 __all__ = [
@@ -54,4 +55,9 @@ __all__ = [
     "treemap", "funnel",
     # Core functions
     "Dashboard", "render", "save", "serve", "theme", "reset_theme",
+    # Theme customization
+    "apply_dark_theme", "apply_light_theme", "apply_vibrant_theme",
+    "get_theme", "export_theme",
+    # Visual builder
+    "set_title", "set_layout", "add_bar", "add_line", "build_dashboard",
 ]
