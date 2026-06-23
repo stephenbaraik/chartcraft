@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chartcraft"
-version = "0.1.1"
-description = "Python-powered dashboards that rival Power BI & Tableau."
+version = "1.0.0"
+description = "Simplified ChartCraft v1: Pandas-like API with stunning visuals, zero dependencies, full customization."
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "stephenbaraik", email = "stephenbaraik@gmail.com" }]
@@ -14,8 +14,8 @@ dependencies = []
 
 keywords = [
     "dashboard", "data-visualization", "charts", "analytics",
-    "real-time", "echarts", "builder", "reporting", "bi",
-    "server-sent-events", "streaming",
+    "echarts", "pandas", "builder", "stunning", "visualization",
+    "minimal", "simplified", "customization"
 ]
 
 classifiers = [
