@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
-    branches: [master]
+    branches: [main]
 
 jobs:
   # ── 1. Verify the package builds cleanly ────────────────────────────────────
@@ -68,40 +68,67 @@ jobs:
           import chartcraft as cc
           print(f"◆ ChartCraft {cc.__version__} — OK")
 
-          # Core classes
-          assert hasattr(cc, "App")
+          # Core data classes
+          assert hasattr(cc, "Data")
+          assert hasattr(cc, "Series")
+          assert hasattr(cc, "DataFrame")
           assert hasattr(cc, "Dashboard")
-          assert hasattr(cc, "Bar")
-          assert hasattr(cc, "Line")
-          assert hasattr(cc, "Donut")
-          assert hasattr(cc, "KPI")
-          assert hasattr(cc, "Filter")
+          print("  Core classes — OK")
 
-          # Themes
-          themes = cc.list_themes()
-          assert "midnight" in themes
-          assert "frost" in themes
-          print(f"  Themes: {len(themes)} loaded")
+          # Chart functions (all 19)
+          chart_funcs = [
+              "bar", "line", "area", "pie", "donut",
+              "scatter", "bubble", "histogram", "boxplot",
+              "heatmap", "radar", "waterfall", "gauge",
+              "candlestick", "table", "metric", "sankey",
+              "treemap", "funnel",
+          ]
+          for fn in chart_funcs:
+              assert hasattr(cc, fn), f"Missing: cc.{fn}()"
+          print(f"  Chart functions ({len(chart_funcs)}) — OK")
 
-          # Palettes
-          palettes = cc.list_palettes()
-          assert len(palettes) == 16
-          print(f"  Palettes: {len(palettes)} loaded")
-
-          # Connectors
-          assert hasattr(cc, "connect_sql")
-          assert hasattr(cc, "connect_csv")
-          assert hasattr(cc, "connect_api")
-
-          # Quick dashboard — full render cycle
-          html = cc.quick_dashboard(
-              title="CI Test",
-              charts=[cc.Bar({"A": 1, "B": 2}, title="Test Chart")],
-              theme="midnight",
+          # Data construction + chart render round-trip
+          data = cc.Data({
+              "month": ["Jan", "Feb"],
+              "value": [100, 200],
+          })
+          chart = cc.bar(data, x="month", y="value", title="CI Test")
+          dashboard = cc.Dashboard(
+              title="CI Smoke Test",
+              charts=[chart],
           )
+          html = cc.render(dashboard)
           assert "ChartCraft" in html
-          assert "ECharts" in html or "echarts" in html
-          print("  quick_dashboard render — OK")
+          assert "echarts" in html.lower()
+          print("  Data → chart → render cycle — OK")
+
+          # Theme functions
+          cc.apply_dark_theme()
+          cc.apply_light_theme()
+          cc.apply_vibrant_theme()
+          css = cc.export_theme()
+          assert len(css) > 0
+          cc.reset_theme()
+          assert hasattr(cc, "theme")
+          assert hasattr(cc, "get_theme")
+          print("  Theme functions — OK")
+
+          # Save to HTML (standalone export)
+          cc.save(dashboard, "/tmp/cc-smoke-test.html")
+          with open("/tmp/cc-smoke-test.html") as f:
+              saved = f.read()
+          assert "ChartCraft" in saved
+          print("  Save HTML — OK")
+
+          # Visual builder helpers
+          assert hasattr(cc, "set_title")
+          assert hasattr(cc, "add_bar")
+          assert hasattr(cc, "add_line")
+          assert hasattr(cc, "add_pie")
+          assert hasattr(cc, "add_scatter")
+          assert hasattr(cc, "set_layout")
+          assert hasattr(cc, "build_dashboard")
+          print("  Visual builder helpers — OK")
 
           print("✅ All checks passed.")
           EOF
