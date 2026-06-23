@@ -1,202 +1,57 @@
 """
-◆ ChartCraft — Python-powered dashboards that rival Power BI & Tableau.
+ChartCraft v1 - Simplified Dashboard Library
+
+A minimalist, pandas-like approach to creating interactive dashboards with full customization.
+
+This is the simplified version of ChartCraft v1, designed with:
+- Simple API (like pandas)
+- No presets (full customization)
+- Minimal file structure
+- Easy learning curve
 
 Quick start:
     import chartcraft as cc
 
-    app = cc.App("My Dashboard", theme="midnight")
+    # Create data (pandas-like)
+    data = cc.Data({
+        "month": ["Jan", "Feb", "Mar", "Apr"],
+        "sales": [100, 150, 200, 180],
+        "profit": [20, 35, 50, 40]
+    })
 
-    @app.page("/")
-    def home():
-        return cc.Dashboard(
-            title="Overview",
-            kpis=[cc.KPI("Revenue", "$1.2M", change=12.5)],
-            charts=[cc.Bar({"Q1": 100, "Q2": 200}, title="Sales", col=0, colspan=12)],
-        )
+    # Create charts
+    bar_chart = cc.bar(data, title="Sales", x="month", y="sales")
+    line_chart = cc.line(data, title="Profit", x="month", y="profit")
 
-    app.run()  # → http://localhost:8050
+    # Create dashboard
+    dashboard = cc.Dashboard(
+        title="Business Metrics",
+        charts=[bar_chart, line_chart]
+    )
+
+    # Serve locally
+    cc.serve(dashboard)
 """
 
-from chartcraft.server.app_server import AppServer
-from chartcraft.core.models import (
-    Dashboard,
-    Filter,
-    KPI,
-    Bar,
-    Line,
-    Area,
-    Pie,
-    Donut,
-    Scatter,
-    Bubble,
-    Heatmap,
-    Radar,
-    Waterfall,
-    Funnel,
-    Treemap,
-    Sankey,
-    Gauge,
-    Candlestick,
-    Histogram,
-    BoxPlot,
-    Table,
-    Metric,
-    Divider,
-    Spacer,
-    TextBlock,
-    SectionHeader,
+from .data import Data, Series, DataFrame
+from .charts import (
+    bar, line, area, pie, donut, scatter, bubble, histogram,
+    boxplot, heatmap, radar, waterfall, gauge, candlestick,
+    table, metric, sankey, treemap, funnel
 )
-from chartcraft.core.theme import (
-    Theme,
-    THEMES,
-    get_theme,
-    register_theme,
-    list_themes,
-)
-from chartcraft.core.colors import (
-    PALETTES,
-    get_palette,
-    list_palettes,
-    auto_colors,
-    ColorScale,
-    lighten,
-    darken,
-    opacity,
-    complementary,
-    triadic,
-    analogous,
-    split_complementary,
-)
-from chartcraft.connectors import connect_sql, connect_csv, connect_api
-from chartcraft.presets import (
-    Page,
-    executive_page,
-    sales_page,
-    customer_page,
-    product_page,
-    section,
-    note,
-    stat,
-    trend_line,
-    trend_area,
-    comparison_bars,
-    ranked_bars,
-    spotlight_donut,
-    insight_scatter,
-    data_table,
-    sql_kpi,
-    sql_line,
-    sql_area,
-    sql_bar,
-    sql_donut,
-    sql_scatter,
-    sql_table,
-)
+from .dashboard import Dashboard
+from .render import render, save, serve
+from .themes import theme, reset_theme
 
-
-def App(title: str, theme: str = "default") -> AppServer:
-    """Create a ChartCraft application."""
-    return AppServer(title=title, theme=theme)
-
-
-def quick_dashboard(
-    title: str,
-    charts: list,
-    theme: str = "default",
-    kpis: list = None,
-    save_path: str = None,
-) -> str:
-    """
-    Quickly create and optionally export a dashboard without defining an App.
-
-    Returns HTML string (or writes to save_path if provided).
-    """
-    app = AppServer(title=title, theme=theme)
-    dashboard = Dashboard(title=title, kpis=kpis or [], charts=charts)
-
-    @app.page("/")
-    def _page():
-        return dashboard
-
-    html = app.to_html()
-    if save_path:
-        with open(save_path, "w", encoding="utf-8") as f:
-            f.write(html)
-        print(f"◆ Exported → {save_path}")
-    return html
-
-
-__version__ = "0.1.1"
+__version__ = "1.0.0"
 __all__ = [
-    "App",
-    "AppServer",
-    "quick_dashboard",
-    "Dashboard",
-    "Filter",
-    "KPI",
-    "Bar",
-    "Line",
-    "Area",
-    "Pie",
-    "Donut",
-    "Scatter",
-    "Bubble",
-    "Heatmap",
-    "Radar",
-    "Waterfall",
-    "Funnel",
-    "Treemap",
-    "Sankey",
-    "Gauge",
-    "Candlestick",
-    "Histogram",
-    "BoxPlot",
-    "Table",
-    "Metric",
-    "Divider",
-    "Spacer",
-    "TextBlock",
-    "SectionHeader",
-    "Theme",
-    "THEMES",
-    "get_theme",
-    "register_theme",
-    "list_themes",
-    "PALETTES",
-    "get_palette",
-    "list_palettes",
-    "auto_colors",
-    "ColorScale",
-    "lighten",
-    "darken",
-    "opacity",
-    "complementary",
-    "triadic",
-    "analogous",
-    "split_complementary",
-    "connect_sql",
-    "connect_csv",
-    "connect_api",
-    "Page",
-    "executive_page",
-    "sales_page",
-    "customer_page",
-    "product_page",
-    "section",
-    "note",
-    "stat",
-    "trend_line",
-    "trend_area",
-    "comparison_bars",
-    "ranked_bars",
-    "spotlight_donut",
-    "insight_scatter",
-    "data_table",
-    "sql_kpi",
-    "sql_line",
-    "sql_area",
-    "sql_bar",
-    "sql_donut",
-    "sql_scatter",
-    "sql_table",
+    # Data structures (pandas-like)
+    "Data", "Series", "DataFrame",
+    # Chart functions
+    "bar", "line", "area", "pie", "donut", "scatter", "bubble",
+    "histogram", "boxplot", "heatmap", "radar", "waterfall",
+    "gauge", "candlestick", "table", "metric", "sankey",
+    "treemap", "funnel",
+    # Core functions
+    "Dashboard", "render", "save", "serve", "theme", "reset_theme",
 ]
