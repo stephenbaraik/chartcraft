@@ -21,7 +21,7 @@ class Data:
         self.columns = list(data.keys())
     
     def __repr__(self):
-        return f"Data(columns={self.columns}, shape={len(self.columns)}x{len(self.data[self.columns[0]) if self.columns else 0})"
+        return f"Data(columns={self.columns}, shape={len(self.columns)}x{len(self.data[self.columns[0]]) if self.columns else 0})"
     
     def rename(self, columns: Dict[str, str]) -> 'Data':
         """Rename columns (pandas-like)."""
@@ -119,7 +119,7 @@ class DataFrame:
         self.columns = list(data.keys())
     
     def __repr__(self):
-        return f"DataFrame(columns={self.columns}, shape={len(self.columns)}x{len(self.data[self.columns[0]) if self.columns else 0})"
+        return f"DataFrame(columns={self.columns}, shape={len(self.columns)}x{len(self.data[self.columns[0]]) if self.columns else 0})"
     
     def head(self, n: int = 5) -> 'DataFrame':
         """Get first n rows (pandas-like)."""
