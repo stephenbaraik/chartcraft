@@ -33,16 +33,23 @@ class Data:
     
     def filter(self, **conditions) -> 'Data':
         """Filter data based on column conditions (pandas-like)."""
+        # Compute boolean mask from the first condition column
+        mask = None
+        for condition_col, condition_fn in conditions.items():
+            if condition_col in self.data and callable(condition_fn):
+                col_mask = [condition_fn(v) for v in self.data[condition_col]]
+                if mask is None:
+                    mask = col_mask
+                else:
+                    mask = [m and c for m, c in zip(mask, col_mask)]
+        
+        if mask is None:
+            return Data(dict(self.data))
+        
+        # Apply mask to ALL columns
         filtered_data = {}
         for col, values in self.data.items():
-            if col in conditions:
-                condition = conditions[col]
-                if callable(condition):
-                    filtered_data[col] = [v for v in values if condition(v)]
-                else:
-                    filtered_data[col] = values
-            else:
-                filtered_data[col] = values
+            filtered_data[col] = [v for v, m in zip(values, mask) if m]
         return Data(filtered_data)
     
     def sort_values(self, column: str, ascending: bool = True) -> 'Data':
